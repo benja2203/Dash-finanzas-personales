@@ -219,6 +219,28 @@ const [accounts, setAccounts] = useState(() => {
     return <IconComponent size={size} className={className} />;
   };
 
+
+// --- EXPORTAR CSV ---
+const exportToCSV = () => {
+  const headers = ['Fecha', 'Tipo', 'Descripción', 'Categoría', 'Cuenta', 'Monto'];
+  const rows = transactions.map(t => [
+    t.date,
+    t.type,
+    t.description,
+    t.category,
+    accounts.find(a => a.id === t.accountId)?.name || '',
+    t.amount
+  ]);
+  const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `mis-finanzas-${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
   // --- COMPONENTES DE VISTAS ---
 
 const DashboardView = () => {
@@ -493,7 +515,7 @@ const DashboardView = () => {
           </ResponsiveContainer>
         </div>
 
-        {/* Últimas Transacciones */}
+{/* Últimas Transacciones */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
           <h3 className="text-lg font-bold text-slate-800 mb-4">Últimas Transacciones ({timeFilter})</h3>
           {filteredTransactions.length === 0 ? (
@@ -530,6 +552,48 @@ const DashboardView = () => {
             </div>
           )}
         </div>
+
+        {/* Proyección de ahorro */}
+        {(() => {
+          const months = Array.from({ length: 3 }, (_, i) => {
+            const d = new Date();
+            d.setMonth(d.getMonth() - (2 - i));
+            const key = d.toISOString().substring(0, 7);
+            const inc = transactions.filter(t => t.type === 'ingreso' && t.date.startsWith(key)).reduce((s, t) => s + t.amount, 0);
+            const exp = transactions.filter(t => t.type === 'gasto' && t.date.startsWith(key)).reduce((s, t) => s + t.amount, 0);
+            return inc - exp;
+          });
+          const avgSaving = months.reduce((s, m) => s + m, 0) / months.length;
+          const proj3 = avgSaving * 3;
+          const proj6 = avgSaving * 6;
+          const proj12 = avgSaving * 12;
+          return (
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+              <h3 className="text-base font-bold text-slate-800 mb-1 flex items-center gap-2">
+                <TrendingUp className="text-emerald-500" size={20} /> Proyección de Ahorro
+              </h3>
+              <p className="text-xs text-slate-400 mb-4">
+                Basado en tu promedio de ahorro de los últimos 3 meses:{' '}
+                <span className="font-bold text-slate-600">{formatCurrency(Math.round(avgSaving))}/mes</span>
+              </p>
+              <div className="grid grid-cols-3 gap-4">
+                {[
+                  { label: '3 meses', value: proj3 },
+                  { label: '6 meses', value: proj6 },
+                  { label: '12 meses', value: proj12 }
+                ].map(p => (
+                  <div key={p.label} className={`p-4 rounded-xl text-center ${p.value >= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
+                    <p className="text-xs text-slate-500 mb-1">{p.label}</p>
+                    <p className={`text-lg font-black ${p.value >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                      {formatCurrency(Math.round(p.value))}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
       </div>
     );
   };
