@@ -1,69 +1,120 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
+import { db } from '../firebase';
+import { useAuth } from './AuthContext';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 const FinanceContext = createContext();
-
 export const useFinance = () => useContext(FinanceContext);
 
-
-const resetAllData = () => {
-  if (!window.confirm('¿Seguro que quieres borrar TODOS los datos? Esta acción no se puede deshacer.')) return;
-  localStorage.clear();
-  window.location.reload();
+// 👉 CORRECCIÓN 1: Todo empieza vacío, desde cero, como pediste.
+const DEFAULT_DATA = {
+  accounts: [], 
+  transactions: [],
+  subscriptions: [],
+  debts: [],
+  goals: [],
+  wishlist: [],
+  budgets: [],
+  customExpenseCategories: [],
+  customIncomeCategories: [],
 };
 
+const EXPENSE_CATS = ['Alimentación', 'Transporte', 'Vivienda', 'Servicios', 'Entretenimiento', 'Salud', 'Educación', 'Otros'];
+const INCOME_CATS = ['Salario', 'Inversiones', 'Negocios', 'Regalos', 'Otros'];
 
 export const FinanceProvider = ({ children }) => {
+  const { user } = useAuth();
 
-  const [accounts, setAccounts] = useState(() => {
-    const saved = localStorage.getItem('mf_accounts');
-    return saved ? JSON.parse(saved) : [];
+  const [accounts, setAccounts] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [subscriptions, setSubscriptions] = useState([]);
+  const [debts, setDebts] = useState([]);
+  const [goals, setGoals] = useState([]);
+  const [wishlist, setWishlist] = useState([]);
+  const [budgets, setBudgets] = useState([]);
+  const [customExpenseCategories, setCustomExpenseCategories] = useState([]);
+  const [customIncomeCategories, setCustomIncomeCategories] = useState([]);
+  const [syncing, setSyncing] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  const expenseCategories = [...EXPENSE_CATS, ...customExpenseCategories];
+  const incomeCategories = [...INCOME_CATS, ...customIncomeCategories];
+
+  // Cargar datos desde Firestore o localStorage
+  useEffect(() => {
+    const load = async () => {
+      if (user) {
+        // Usuario logueado: cargar desde Firestore
+        const ref = doc(db, 'users', user.uid);
+        const snap = await getDoc(ref);
+        const data = snap.exists() ? snap.data() : DEFAULT_DATA;
+        setAccounts(data.accounts ?? DEFAULT_DATA.accounts);
+        setTransactions(data.transactions ?? []);
+        setSubscriptions(data.subscriptions ?? []);
+        setDebts(data.debts ?? []);
+        setGoals(data.goals ?? []);
+        setWishlist(data.wishlist ?? []);
+        setBudgets(data.budgets ?? []);
+        setCustomExpenseCategories(data.customExpenseCategories ?? []);
+        setCustomIncomeCategories(data.customIncomeCategories ?? []);
+      } else {
+        // Sin login: usar localStorage como fallback
+        const get = (key, fallback) => {
+          const s = localStorage.getItem(key);
+          return s ? JSON.parse(s) : fallback;
+        };
+        setAccounts(get('mf_accounts', DEFAULT_DATA.accounts));
+        setTransactions(get('mf_transactions', []));
+        setSubscriptions(get('mf_subscriptions', []));
+        setDebts(get('mf_debts', []));
+        setGoals(get('mf_goals', []));
+        setWishlist(get('mf_wishlist', []));
+        setBudgets(get('mf_budgets', []));
+        setCustomExpenseCategories(get('mf_custom_expense_cats', []));
+        setCustomIncomeCategories(get('mf_custom_income_cats', []));
+      }
+      setLoaded(true);
+    };
+    load();
+  }, [user]);
+
+  // Guardar datos - Firestore si hay user, localStorage si no
+  const saveData = async (newState) => {
+    if (user) {
+      setSyncing(true);
+      try {
+        await setDoc(doc(db, 'users', user.uid), newState, { merge: true });
+      } finally {
+        setSyncing(false);
+      }
+    } else {
+      Object.entries(newState).forEach(([key, value]) => {
+        const map = {
+          accounts: 'mf_accounts', transactions: 'mf_transactions',
+          subscriptions: 'mf_subscriptions', debts: 'mf_debts',
+          goals: 'mf_goals', wishlist: 'mf_wishlist', budgets: 'mf_budgets',
+          customExpenseCategories: 'mf_custom_expense_cats',
+          customIncomeCategories: 'mf_custom_income_cats',
+        };
+        if (map[key]) localStorage.setItem(map[key], JSON.stringify(value));
+      });
+    }
+  };
+
+  const getCurrentState = () => ({
+    accounts, transactions, subscriptions, debts,
+    goals, wishlist, budgets, customExpenseCategories, customIncomeCategories
   });
 
-  const [transactions, setTransactions] = useState(() => {
-    const saved = localStorage.getItem('mf_transactions');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [subscriptions, setSubscriptions] = useState(() => {
-    const saved = localStorage.getItem('mf_subscriptions');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [debts, setDebts] = useState(() => {
-    const saved = localStorage.getItem('mf_debts');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [goals, setGoals] = useState(() => {
-    const saved = localStorage.getItem('mf_goals');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [wishlist, setWishlist] = useState(() => {
-    const saved = localStorage.getItem('mf_wishlist');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [budgets, setBudgets] = useState(() => {
-    const saved = localStorage.getItem('mf_budgets');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [customExpenseCategories, setCustomExpenseCategories] = useState(() => {
-    const saved = localStorage.getItem('mf_custom_expense_cats');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [customIncomeCategories, setCustomIncomeCategories] = useState(() => {
-    const saved = localStorage.getItem('mf_custom_income_cats');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const expenseCategories = ['Alimentación', 'Transporte', 'Vivienda', 'Servicios', 'Entretenimiento', 'Salud', 'Educación', 'Otros', ...customExpenseCategories];
-  const incomeCategories = ['Salario', 'Inversiones', 'Negocios', 'Regalos', 'Otros', ...customIncomeCategories];
+  // Wrappers que guardan automáticamente
+  const update = (setter, key) => (val) => {
+    setter(val);
+    saveData({ ...getCurrentState(), [key]: val });
+  };
 
   // Motor de pagos automáticos
   useEffect(() => {
+    if (!loaded || subscriptions.length === 0) return;
     const todayStr = new Date().toISOString().split('T')[0];
     let hasChanges = false;
     let newTxs = [];
@@ -90,22 +141,13 @@ export const FinanceProvider = ({ children }) => {
       return currentSub;
     });
     if (hasChanges) {
-      setTransactions(prev => [...prev, ...newTxs]);
+      const newTransactions = [...transactions, ...newTxs];
+      setTransactions(newTransactions);
       setSubscriptions(updatedSubs);
+      saveData({ ...getCurrentState(), transactions: newTransactions, subscriptions: updatedSubs });
     }
-  }, [subscriptions]);
+  }, [loaded]);
 
-  // Persistencia
-  useEffect(() => { localStorage.setItem('mf_accounts', JSON.stringify(accounts)); }, [accounts]);
-  useEffect(() => { localStorage.setItem('mf_transactions', JSON.stringify(transactions)); }, [transactions]);
-  useEffect(() => { localStorage.setItem('mf_subscriptions', JSON.stringify(subscriptions)); }, [subscriptions]);
-  useEffect(() => { localStorage.setItem('mf_debts', JSON.stringify(debts)); }, [debts]);
-  useEffect(() => { localStorage.setItem('mf_goals', JSON.stringify(goals)); }, [goals]);
-  useEffect(() => { localStorage.setItem('mf_wishlist', JSON.stringify(wishlist)); }, [wishlist]);
-  useEffect(() => { localStorage.setItem('mf_budgets', JSON.stringify(budgets)); }, [budgets]);
-  useEffect(() => { localStorage.setItem('mf_custom_expense_cats', JSON.stringify(customExpenseCategories)); }, [customExpenseCategories]);
-  useEffect(() => { localStorage.setItem('mf_custom_income_cats', JSON.stringify(customIncomeCategories)); }, [customIncomeCategories]);
-  
   const getAccountBalance = (accountId) => {
     const acc = accounts.find(a => a.id === accountId);
     if (!acc) return 0;
@@ -123,22 +165,37 @@ export const FinanceProvider = ({ children }) => {
 
   const totalNetWorth = accounts.reduce((sum, acc) => sum + getAccountBalance(acc.id), 0);
 
+  const resetAllData = async () => {
+    if (!window.confirm('¿Seguro que quieres borrar TODOS los datos?')) return;
+    if (user) {
+      await setDoc(doc(db, 'users', user.uid), DEFAULT_DATA);
+    }
+    localStorage.clear();
+    window.location.reload();
+  };
+
+  if (!loaded) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-slate-400 text-sm">Cargando datos...</div>
+      </div>
+    );
+  }
+
   return (
     <FinanceContext.Provider value={{
-      accounts, setAccounts,
-      transactions, setTransactions,
-      subscriptions, setSubscriptions,
-      debts, setDebts,
-      goals, setGoals,
-      wishlist, setWishlist,
-      budgets, setBudgets,
-      getAccountBalance,
-      totalNetWorth,
-      expenseCategories,
-      incomeCategories,
-      resetAllData,
-      customExpenseCategories, setCustomExpenseCategories,
-      customIncomeCategories, setCustomIncomeCategories,
+      accounts, setAccounts: update(setAccounts, 'accounts'),
+      transactions, setTransactions: update(setTransactions, 'transactions'),
+      subscriptions, setSubscriptions: update(setSubscriptions, 'subscriptions'),
+      debts, setDebts: update(setDebts, 'debts'),
+      goals, setGoals: update(setGoals, 'goals'),
+      wishlist, setWishlist: update(setWishlist, 'wishlist'),
+      budgets, setBudgets: update(setBudgets, 'budgets'),
+      customExpenseCategories, setCustomExpenseCategories: update(setCustomExpenseCategories, 'customExpenseCategories'),
+      customIncomeCategories, setCustomIncomeCategories: update(setCustomIncomeCategories, 'customIncomeCategories'),
+      expenseCategories, incomeCategories,
+      getAccountBalance, totalNetWorth,
+      resetAllData, syncing,
     }}>
       {children}
     </FinanceContext.Provider>

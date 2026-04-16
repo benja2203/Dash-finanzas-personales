@@ -4,6 +4,10 @@ import {
   ShoppingCart, Wallet, Landmark, Repeat, FileText, PiggyBank, Tag
 } from 'lucide-react';
 
+// 👇 1. Importamos los nuevos componentes de Auth
+import { useAuth } from './context/AuthContext';
+import LoginView from './views/LoginView';
+
 import DashboardView from './views/DashboardView';
 import AccountsView from './views/AccountsView';
 import TransactionsView from './views/TransactionsView';
@@ -18,7 +22,11 @@ import { useFinance } from './context/FinanceContext';
 
 export default function App() {
   const [currentView, setCurrentView] = useState('dashboard');
-  const { resetAllData } = useFinance();
+  
+  // 👇 2. Extraemos las variables de Auth y agregamos "syncing" de Finance
+  const { user, logout } = useAuth();
+  const { resetAllData, syncing } = useFinance();
+
   const navItems = [
     { id: 'dashboard', label: 'Resumen', icon: LayoutDashboard },
     { id: 'accounts', label: 'Cuentas', icon: Landmark },
@@ -32,15 +40,34 @@ export default function App() {
     { id: 'categories', label: 'Categorías', icon: Tag },
   ];
 
+  // 👇 3. Bloqueo de seguridad: Si no hay usuario logueado, mostramos la pantalla de Login
+  if (!user) return <LoginView />;
+
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-900">
       <aside className="hidden md:flex flex-col w-64 bg-white border-r border-slate-200 z-10">
-        <div className="p-6">
+        
+        <div className="p-6 pb-4 flex justify-between items-center">
           <h1 className="text-2xl font-black text-blue-600 flex items-center gap-2">
             <Wallet size={28} /> Mis Finanzas
           </h1>
+          {/* 👇 4. Indicador de guardado */}
+          {syncing && <span className="text-xs text-blue-400 font-medium animate-pulse">Guardando...</span>}
         </div>
-        <nav className="flex-1 px-4 space-y-2 overflow-y-auto">
+
+        {/* 👇 5. Perfil de usuario en el menú lateral */}
+        <div className="px-6 pb-4 border-b border-slate-200">
+          <div className="flex items-center gap-3">
+            {/* El referrerPolicy ayuda a que la imagen de Google cargue sin bloqueos de seguridad */}
+            <img src={user.photoURL} alt={user.displayName} className="w-8 h-8 rounded-full bg-slate-100" referrerPolicy="no-referrer" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-slate-800 truncate">{user.displayName}</p>
+              <p className="text-xs text-slate-400 truncate">{user.email}</p>
+            </div>
+          </div>
+        </div>
+
+        <nav className="flex-1 px-4 py-2 space-y-2 overflow-y-auto">
           {navItems.map(item => (
             <button
               key={item.id}
@@ -56,7 +83,15 @@ export default function App() {
             </button>
           ))}
         </nav>
-        <div className="p-4 border-t border-slate-200">
+        
+        <div className="p-4 border-t border-slate-200 space-y-2">
+          {/* 👇 6. Botón de Cerrar Sesión */}
+          <button
+            onClick={logout}
+            className="w-full px-4 py-2 text-xs font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+          >
+            Cerrar sesión
+          </button>
           <button
             onClick={resetAllData}
             className="w-full px-4 py-2 text-xs font-medium text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -67,10 +102,12 @@ export default function App() {
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden relative">
-        <header className="md:hidden bg-white border-b border-slate-200 p-4 sticky top-0 z-10">
-          <h1 className="text-xl font-black text-blue-600 flex items-center justify-center gap-2">
+        <header className="md:hidden bg-white border-b border-slate-200 p-4 sticky top-0 z-10 flex justify-between items-center">
+          <h1 className="text-xl font-black text-blue-600 flex items-center gap-2">
             <Wallet size={24} /> Mis Finanzas
           </h1>
+          {/* Indicador de guardado también en la vista de celular */}
+          {syncing && <span className="text-xs text-blue-400 font-medium animate-pulse">Guardando...</span>}
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8">
