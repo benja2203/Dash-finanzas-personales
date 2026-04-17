@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   LayoutDashboard, ArrowRightLeft, CreditCard, Target,
-  ShoppingCart, Wallet, Landmark, Repeat, FileText, PiggyBank, Tag
+  ShoppingCart, Wallet, Landmark, Repeat, FileText, PiggyBank, Tag, User
 } from 'lucide-react';
 
 // 👇 1. Importamos los nuevos componentes de Auth
@@ -122,6 +122,31 @@ export default function App() {
             {currentView === 'wishlist' && <WishlistView />}
             {currentView === 'budgets' && <BudgetsView />}
             {currentView === 'categories' && <CategoriesView />}
+
+            {/* 👇 Vista de Perfil exclusiva para móvil */}
+            {currentView === 'profile' && (
+              <div className="flex flex-col items-center justify-center pt-8 space-y-8 md:hidden">
+                <div className="flex flex-col items-center space-y-2">
+                  <img src={user.photoURL} alt={user.displayName} className="w-24 h-24 rounded-full border-4 border-white shadow-md" referrerPolicy="no-referrer" />
+                  <h2 className="text-xl font-bold text-slate-800 mt-2">{user.displayName}</h2>
+                  <p className="text-sm text-slate-500">{user.email}</p>
+                </div>
+                <div className="w-full max-w-xs space-y-4">
+                  <button
+                    onClick={logout}
+                    className="w-full px-4 py-3 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-xl shadow-sm hover:bg-slate-50 transition-all"
+                  >
+                    Cerrar sesión
+                  </button>
+                  <button
+                    onClick={resetAllData}
+                    className="w-full px-4 py-3 text-sm font-bold text-red-600 bg-red-50 border border-red-100 rounded-xl shadow-sm hover:bg-red-100 transition-all"
+                  >
+                    Resetear todos los datos
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </main>
@@ -141,6 +166,17 @@ export default function App() {
               <span className="text-[10px] font-medium mt-1">{item.label}</span>
             </button>
           ))}
+
+          {/* 👇 Botón de Perfil fijo al final de la barra para móviles */}
+          <button
+            onClick={() => setCurrentView('profile')}
+            className={`flex flex-col items-center justify-center p-2 min-w-[72px] flex-shrink-0 transition-colors ${
+              currentView === 'profile' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            <User size={24} />
+            <span className="text-[10px] font-medium mt-1">Perfil</span>
+          </button>
         </div>
       </nav>
     </div>
