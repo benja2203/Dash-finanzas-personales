@@ -30,12 +30,24 @@ export default function TransactionsView() {
     e.preventDefault();
     if (!newTx.amount || !newTx.description || !newTx.accountId) return;
     if (newTx.type === 'transferencia' && newTx.accountId === newTx.targetAccountId) return;
-    const newTransaction = {
-      ...newTx, id: Date.now(), amount: Number(newTx.amount), accountId: Number(newTx.accountId),
-      targetAccountId: newTx.type === 'transferencia' ? Number(newTx.targetAccountId) : undefined
-    };
-    setTransactions([...transactions, newTransaction]);setNewTx({ ...newTx, amount: '', description: '', notes: '', category: newTx.type === 'gasto' ? 'Alimentación' : newTx.type === 'transferencia' ? 'Transferencia' : 'Salario' });
     
+    const newTransaction = {
+      ...newTx, 
+      id: Date.now(), 
+      amount: Number(newTx.amount), 
+      accountId: newTx.accountId, // Quitamos el Number() por si tus IDs son alfanuméricos
+      // 👇 AQUÍ ESTÁ LA MAGIA: Cambiamos undefined por null
+      targetAccountId: newTx.type === 'transferencia' ? newTx.targetAccountId : null
+    };
+    
+    setTransactions([...transactions, newTransaction]);
+    setNewTx({ 
+      ...newTx, 
+      amount: '', 
+      description: '', 
+      notes: '', 
+      category: newTx.type === 'gasto' ? 'Alimentación' : newTx.type === 'transferencia' ? 'Transferencia' : 'Salario' 
+    });
   };
 
   const handleDelete = (id) => setTransactions(transactions.filter(t => t.id !== id));

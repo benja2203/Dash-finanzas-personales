@@ -1,13 +1,12 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { VitePWA } from 'vite-plugin-pwa' // 👇 Importamos el plugin de PWA
+import { VitePWA } from 'vite-plugin-pwa' 
 
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    // 👇 Agregamos toda la configuración de la PWA
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico'],
@@ -25,6 +24,11 @@ export default defineConfig({
         ]
       },
       workbox: {
+        cleanupOutdatedCaches: true, 
+        clientsClaim: true,          
+        skipWaiting: true, 
+        // 👇 LA LÍNEA SALVAVIDAS: Ignorar las rutas secretas de Firebase
+        navigateFallbackDenylist: [/^\/__/],          
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         runtimeCaching: [
           {

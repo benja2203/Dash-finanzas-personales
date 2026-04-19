@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   LayoutDashboard, ArrowRightLeft, CreditCard, Target,
   ShoppingCart, Wallet, Landmark, Repeat, FileText, PiggyBank, Tag, User
@@ -21,7 +21,15 @@ import CategoriesView from './views/CategoriesView';
 import { useFinance } from './context/FinanceContext';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState('dashboard');
+  // 👇 1. Le decimos a React que primero busque el marcapáginas, y si no existe, use 'dashboard'
+  const [currentView, setCurrentView] = useState(() => {
+    return localStorage.getItem('mf_last_view') || 'dashboard';
+  });
+
+  // 👇 2. Cada vez que currentView cambie, guardamos el marcapáginas automáticamente
+  useEffect(() => {
+    localStorage.setItem('mf_last_view', currentView);
+  }, [currentView]);
   
   // 👇 2. Extraemos las variables de Auth y agregamos "syncing" de Finance
   const { user, logout } = useAuth();

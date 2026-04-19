@@ -78,12 +78,20 @@ export const FinanceProvider = ({ children }) => {
     load();
   }, [user]);
 
-  // Guardar datos - Firestore si hay user, localStorage si no
+ // Guardar datos - Firestore si hay user, localStorage si no
   const saveData = async (newState) => {
     if (user) {
       setSyncing(true);
       try {
-        await setDoc(doc(db, 'users', user.uid), newState, { merge: true });
+        // 👇 1. EL FILTRO PURIFICADOR: Convierte todo a texto y luego a objeto de nuevo. 
+        // Esto destruye automáticamente cualquier 'undefined' que esté molestando.
+        const cleanState = JSON.parse(JSON.stringify(newState));
+        
+        await setDoc(doc(db, 'users', user.uid), cleanState, { merge: true });
+      } catch (error) {
+        // 👇 2. EL ACUSETE: Si Firebase bloquea algo, ahora te saltará una alerta roja en la cara.
+        console.error("🔥 Error crítico de Firebase:", error);
+        alert("Hubo un error guardando en la nube: " + error.message);
       } finally {
         setSyncing(false);
       }
