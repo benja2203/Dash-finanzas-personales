@@ -12,7 +12,7 @@ import {
 
 export default function DashboardView() {
   const [timeFilter, setTimeFilter] = useState('mensual');
-  const { accounts, transactions, goals, getAccountBalance, totalNetWorth } = useFinance();
+  const { accounts, transactions, goals, getAccountBalance, totalNetWorth, expenseCategories } = useFinance();
 
   const getFilteredTransactions = () => {
     const today = new Date();
@@ -38,8 +38,8 @@ export default function DashboardView() {
   const savingsRate = totalIncome > 0 ? (balance / totalIncome) * 100 : 0;
 
   const CHART_COLORS = ['#378ADD','#1D9E75','#D85A30','#BA7517','#7F77DD','#E24B4A','#888780','#D4537E'];
-  const expenseCategories = ['Alimentación', 'Transporte', 'Vivienda', 'Servicios', 'Entretenimiento', 'Salud', 'Educación', 'Otros'];
 
+  // 👇 Usamos las categorías dinámicas que trajimos arriba
   const expenseByCategory = expenseCategories.map(cat => ({
     name: cat,
     value: filteredTransactions.filter(t => t.type === 'gasto' && t.category === cat).reduce((s, t) => s + t.amount, 0)
