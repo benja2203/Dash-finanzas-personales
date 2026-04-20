@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { formatCurrency } from '../utils/helpers.jsx';
 import { Plus, Trash2, Edit2, Banknote, ArrowUpRight, ArrowDownLeft, CheckCircle2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function DebtsView() {
   const { debts, setDebts, accounts, transactions, setTransactions } = useFinance();
@@ -17,6 +18,7 @@ export default function DebtsView() {
     if (!newDebt.name || !newDebt.totalAmount) return;
     setDebts([...debts, { ...newDebt, id: Date.now(), totalAmount: Number(newDebt.totalAmount), paidAmount: 0 }]);
     setNewDebt({ name: '', totalAmount: '', type: 'por_pagar', dueDate: new Date().toISOString().split('T')[0] });
+    toast.success('Registro exitoso');
   };
 
   const startEdit = (debt) => { setEditingId(debt.id); setEditForm(debt); };
@@ -24,6 +26,7 @@ export default function DebtsView() {
   const saveEdit = () => {
     setDebts(debts.map(d => d.id === editingId ? { ...editForm, totalAmount: Number(editForm.totalAmount) } : d));
     setEditingId(null);
+    toast.success('Se ha editado correctamente');
   };
 
   const addPayment = (debt) => {
@@ -33,7 +36,7 @@ export default function DebtsView() {
 
     if (!amount || amount <= 0) return;
     if (!accountIdNumber) {
-      alert("Debes crear al menos una cuenta en la pestaña 'Cuentas' para poder hacer abonos.");
+      toast.success("Debes crear al menos una cuenta en la pestaña 'Cuentas' para poder hacer abonos.");
       return;
     }
 
@@ -55,6 +58,7 @@ export default function DebtsView() {
     }, 500);
 
     setPaymentAmounts({ ...paymentAmounts, [debt.id]: '' });
+    toast.success('Abono registrado en tu cuenta');
   };
 
   return (
@@ -112,7 +116,7 @@ export default function DebtsView() {
                   {!isCompleted && (
                     <button onClick={() => startEdit(d)} className="p-1.5 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-md transition-colors ml-1"><Edit2 size={16}/></button>
                   )}
-                  <button onClick={() => setDebts(debts.filter(x => x.id !== d.id))} className={`p-1.5 text-slate-300 rounded-md transition-colors ${isPagar ? 'hover:text-red-500 hover:bg-red-50' : 'hover:text-emerald-500 hover:bg-emerald-50'}`}><Trash2 size={16}/></button>
+                  <button onClick={() => { setDebts(debts.filter(x => x.id !== d.id)); toast.error('Deuda eliminada'); }} className={`p-1.5 text-slate-300 rounded-md transition-colors ${isPagar ? 'hover:text-red-500 hover:bg-red-50' : 'hover:text-emerald-500 hover:bg-emerald-50'}`}><Trash2 size={16}/></button>
                 </div>
               </div>
               
@@ -133,10 +137,7 @@ export default function DebtsView() {
               {/* 👇 Renderizado Condicional: Si está completa, muestra el botón de liquidar. Si no, muestra los inputs de abono */}
               {isCompleted ? (
                 <div className="mt-2 pt-3 border-t border-slate-200">
-                  <button 
-                    onClick={() => setDebts(debts.filter(x => x.id !== d.id))} 
-                    className="w-full py-2.5 bg-slate-800 text-white rounded-xl text-sm font-bold hover:bg-slate-900 transition-colors flex items-center justify-center gap-2 shadow-sm"
-                  >
+                  <button onClick={() => { setDebts(debts.filter(x => x.id !== d.id)); toast.success('¡Deuda liquidada y archivada! 🎉'); }} className="w-full py-2.5 bg-slate-800 text-white rounded-xl text-sm font-bold hover:bg-slate-900 transition-colors flex items-center justify-center gap-2 shadow-sm">
                     <CheckCircle2 size={18} /> Liquidar y Ocultar
                   </button>
                 </div>

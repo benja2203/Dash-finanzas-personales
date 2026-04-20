@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { formatCurrency } from '../utils/helpers.jsx';
 import { Plus, Trash2, CheckCircle2, Circle, Package } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function WishlistView() {
   const { wishlist, setWishlist } = useFinance();
@@ -12,6 +13,7 @@ export default function WishlistView() {
     if (!newItem.name || !newItem.price) return;
     setWishlist([...wishlist, { ...newItem, id: Date.now(), price: Number(newItem.price), purchased: false }]);
     setNewItem({ name: '', price: '', priority: 'Media' });
+    toast.success('Artículo añadido a tu lista de deseos');
   };
 
   const togglePurchased = (id) => setWishlist(wishlist.map(w => w.id === id ? { ...w, purchased: !w.purchased } : w));
@@ -38,9 +40,8 @@ export default function WishlistView() {
           <div key={w.id} className={`p-4 rounded-2xl border transition-all ${w.purchased ? 'bg-slate-50 border-slate-200 opacity-60' : 'bg-white border-slate-100 shadow-sm'}`}>
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-start gap-3 flex-1 min-w-0">
-                <button onClick={() => togglePurchased(w.id)} className="mt-1 flex-shrink-0">
-                  {w.purchased ? <CheckCircle2 className="text-emerald-500" size={24} /> : <Circle className="text-slate-300 hover:text-purple-500" size={24} />}
-                </button>
+                <button onClick={() => {togglePurchased(w.id); toast.success(w.purchased ? 'Marcado como pendiente' : '¡Artículo comprado! 🎉'); }}  
+                  className="mt-1 flex-shrink-0">{w.purchased ? <CheckCircle2 className="text-emerald-500" size={24} /> : <Circle className="text-slate-300 hover:text-purple-500" size={24} />}</button>
                 <div className="flex-1 min-w-0">
                   <h3 className={`font-bold flex items-start gap-2 leading-snug break-words ${w.purchased ? 'line-through text-slate-500' : 'text-slate-800'}`}>
                     <Package className={`flex-shrink-0 mt-0.5 ${w.purchased ? 'text-slate-400' : 'text-purple-500'}`} size={18}/>
@@ -50,7 +51,7 @@ export default function WishlistView() {
                 </div>
               </div>
               <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                <button onClick={() => setWishlist(wishlist.filter(x => x.id !== w.id))} className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors">
+                <button onClick={() => { setWishlist(wishlist.filter(x => x.id !== w.id)); toast.error('Artículo eliminado'); }} className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors">
                   <Trash2 size={16}/>
                 </button>
                 {!w.purchased && (

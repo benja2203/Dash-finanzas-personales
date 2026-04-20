@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { formatCurrency, getCategoryIcon, exportToCSV } from '../utils/helpers.jsx';
-import { Plus, Trash2, Edit2, ArrowRight, Building2, Repeat, FileText } from 'lucide-react';
+import { Plus, Trash2, Edit2, ArrowRight, Building2, Repeat, FileText, Search } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function TransactionsView() {
   const { accounts, transactions, setTransactions, expenseCategories, incomeCategories } = useFinance();
@@ -18,6 +19,7 @@ export default function TransactionsView() {
   const [specificMonth, setSpecificMonth] = useState(new Date().toISOString().substring(0, 7));
   const [editingTxId, setEditingTxId] = useState(null);
   const [editTxForm, setEditTxForm] = useState({});
+  const [searchTerm, setSearchTerm] = useState('');
 
   const handleTypeChange = (e) => {
     const newType = e.target.value;
@@ -48,15 +50,20 @@ export default function TransactionsView() {
       notes: '', 
       category: newTx.type === 'gasto' ? 'Alimentación' : newTx.type === 'transferencia' ? 'Transferencia' : 'Salario' 
     });
+    toast.success('Movimiento registrado');
   };
 
-  const handleDelete = (id) => setTransactions(transactions.filter(t => t.id !== id));
+  const handleDelete = (id) => {
+    setTransactions(transactions.filter(t => t.id !== id));
+    toast.error('Movimiento eliminado');
+  };
 
   const saveEditTx = () => {
     setTransactions(transactions.map(t => t.id === editingTxId ? {
       ...editTxForm, amount: Number(editTxForm.amount), accountId: Number(editTxForm.accountId)
     } : t));
     setEditingTxId(null);
+    toast.success('Cambios guardados');
   };
 
   const availableCategories = newTx.type === 'gasto' ? expenseCategories : newTx.type === 'ingreso' ? incomeCategories : ['Transferencia'];
@@ -64,6 +71,8 @@ export default function TransactionsView() {
 
   const displayedTransactions = transactions
     .filter(t => categoryFilter === 'Todas' || t.category === categoryFilter)
+    // 👇 ESTA ES LA LÍNEA MÁGICA NUEVA: Busca ignorando mayúsculas y minúsculas
+    .filter(t => t.description.toLowerCase().includes(searchTerm.toLowerCase()) || (t.notes && t.notes.toLowerCase().includes(searchTerm.toLowerCase())))
     .filter(t => {
       if (periodFilter === 'todo') return true;
       if (periodFilter === 'dia') return t.date === specificDate;
@@ -85,6 +94,16 @@ export default function TransactionsView() {
           </button>
         </div>
         <div className="flex flex-col sm:flex-row gap-2 w-full xl:w-auto">
+          <div className="relative flex-1 sm:w-48 xl:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+            <input 
+              type="text" 
+              placeholder="Buscar movimiento..." 
+              value={searchTerm} 
+              onChange={e => setSearchTerm(e.target.value)} 
+              className="w-full pl-9 pr-3 py-2 border rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 text-sm font-medium" 
+            />
+          </div>
           <div className="flex gap-2 flex-1 sm:flex-none">
             <select value={periodFilter} onChange={e => setPeriodFilter(e.target.value)} className="p-2 border rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 flex-1 sm:w-auto font-medium">
               <option value="todo">Todo el tiempo</option>

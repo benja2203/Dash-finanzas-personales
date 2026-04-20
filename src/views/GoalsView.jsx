@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { formatCurrency } from '../utils/helpers.jsx';
 import { Plus, Trash2, Edit2, Star } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function GoalsView() {
   const { goals, setGoals } = useFinance();
@@ -15,12 +16,14 @@ export default function GoalsView() {
     if (!newGoal.name || !newGoal.targetAmount) return;
     setGoals([...goals, { ...newGoal, id: Date.now(), targetAmount: Number(newGoal.targetAmount), currentAmount: 0 }]);
     setNewGoal({ name: '', targetAmount: '' });
+    toast.success('Meta creada');
   };
 
   const startEdit = (goal) => { setEditingId(goal.id); setEditForm(goal); };
   const saveEdit = () => {
     setGoals(goals.map(g => g.id === editingId ? { ...editForm, targetAmount: Number(editForm.targetAmount) } : g));
     setEditingId(null);
+    toast.success('Meta editada');
   };
 
   const addSaving = (id) => {
@@ -28,6 +31,7 @@ export default function GoalsView() {
     if (!amount || amount <= 0) return;
     setGoals(goals.map(g => g.id === id ? { ...g, currentAmount: Math.min(g.targetAmount, g.currentAmount + amount) } : g));
     setSavingAmounts({ ...savingAmounts, [id]: '' });
+    toast.success('Se ha abonado correctamente');
   };
 
   return (
@@ -68,7 +72,7 @@ export default function GoalsView() {
                 </h3>
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <button onClick={() => startEdit(g)} className="p-1.5 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-md transition-colors"><Edit2 size={16}/></button>
-                  <button onClick={() => setGoals(goals.filter(x => x.id !== g.id))} className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"><Trash2 size={16}/></button>
+                  <button onClick={() => { setGoals(goals.filter(x => x.id !== g.id)); toast.error('Ahorro eliminado'); }} className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"><Trash2 size={16}/></button>
                 </div>
               </div>
               <div className="flex justify-center items-center mb-4">

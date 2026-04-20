@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { formatCurrency } from '../utils/helpers.jsx';
 import { Plus, Trash2, Edit2, Repeat, CalendarClock, Pause, Play } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function SubscriptionsView() {
   const { accounts, subscriptions, setSubscriptions, expenseCategories } = useFinance();
@@ -19,14 +20,24 @@ export default function SubscriptionsView() {
     if (!newSub.name || !newSub.amount || !newSub.accountId) return;
     setSubscriptions([...subscriptions, { ...newSub, id: Date.now(), amount: Number(newSub.amount), isActive: true, accountId: Number(newSub.accountId) }]);
     setNewSub({ ...newSub, name: '', amount: '' });
+    toast.success('Gasto fijo programado');
   };
 
-  const toggleActive = (id) => setSubscriptions(subscriptions.map(s => s.id === id ? { ...s, isActive: !s.isActive } : s));
+  const toggleActive = (id) => {
+    setSubscriptions(subscriptions.map(s => {
+      if (s.id === id) {
+        toast.success(s.isActive ? 'Suscripción pausada' : 'Suscripción reanudada');
+        return { ...s, isActive: !s.isActive };
+      }
+      return s;
+    }));
+  };
   const handleDelete = (id) => setSubscriptions(subscriptions.filter(s => s.id !== id));
   const startEdit = (sub) => { setEditingId(sub.id); setEditForm(sub); };
   const saveEdit = () => {
     setSubscriptions(subscriptions.map(s => s.id === editingId ? { ...editForm, amount: Number(editForm.amount), accountId: Number(editForm.accountId) } : s));
     setEditingId(null);
+    toast.success('Gasto fijo actualizado');
   };
 
   return (
@@ -96,7 +107,7 @@ export default function SubscriptionsView() {
                   <button onClick={() => toggleActive(sub.id)} className={`p-1.5 rounded-md transition-colors ${sub.isActive ? 'text-slate-400 hover:text-amber-500 hover:bg-amber-50' : 'text-emerald-500 bg-emerald-50 hover:bg-emerald-100'}`}>
                     {sub.isActive ? <Pause size={16}/> : <Play size={16}/>}
                   </button>
-                  <button onClick={() => handleDelete(sub.id)} className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"><Trash2 size={16}/></button>
+                  <button onClick={() => { setSubscriptions(subscriptions.filter(s => s.id !== sub.id)); toast.error('Suscripción eliminada'); }} className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"><Trash2 size={16}/></button>
                 </div>
               </div>
               <div className="flex justify-between items-end pt-3 border-t border-slate-50 gap-2 mt-auto">

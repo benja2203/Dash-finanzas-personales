@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { formatCurrency } from '../utils/helpers.jsx';
 import { Upload, Activity, Check, Trash2, AlertCircle } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function ImportView() {
   const { accounts, transactions, setTransactions, expenseCategories, incomeCategories } = useFinance();

@@ -3,6 +3,8 @@ import {
   LayoutDashboard, ArrowRightLeft, CreditCard, Target,
   ShoppingCart, Wallet, Landmark, Repeat, FileText, PiggyBank, Tag, User
 } from 'lucide-react';
+//Componente para alertas
+import { Toaster } from 'react-hot-toast';
 
 // 👇 1. Importamos los nuevos componentes de Auth
 import { useAuth } from './context/AuthContext';
@@ -53,6 +55,7 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-900">
+      <Toaster position="top-center" reverseOrder={false} />
       <aside className="hidden md:flex flex-col w-64 bg-white border-r border-slate-200 z-10">
         
         <div className="p-6 pb-4 flex justify-between items-center">

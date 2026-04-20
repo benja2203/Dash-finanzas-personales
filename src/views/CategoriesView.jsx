@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { Plus, Trash2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function CategoriesView() {
   const { customExpenseCategories, setCustomExpenseCategories, customIncomeCategories, setCustomIncomeCategories } = useFinance();
@@ -12,6 +13,7 @@ export default function CategoriesView() {
     if (!newExpCat.trim()) return;
     setCustomExpenseCategories([...customExpenseCategories, newExpCat.trim()]);
     setNewExpCat('');
+    toast.success('Categoría de gasto creada');
   };
 
   const addIncome = (e) => {
@@ -19,6 +21,7 @@ export default function CategoriesView() {
     if (!newIncCat.trim()) return;
     setCustomIncomeCategories([...customIncomeCategories, newIncCat.trim()]);
     setNewIncCat('');
+    toast.success('Categoría de ingreso creada');
   };
 
   const defaultExpense = ['Alimentación', 'Transporte', 'Vivienda', 'Servicios', 'Entretenimiento', 'Salud', 'Educación', 'Otros'];
@@ -51,7 +54,7 @@ export default function CategoriesView() {
                 {customExpenseCategories.map(c => (
                   <div key={c} className="flex items-center justify-between px-3 py-2 bg-red-50 rounded-lg text-sm text-red-700">
                     {c}
-                    <button onClick={() => setCustomExpenseCategories(customExpenseCategories.filter(x => x !== c))} className="text-red-300 hover:text-red-600 transition-colors">
+                    <button onClick={() => { setCustomExpenseCategories(customExpenseCategories.filter(x => x !== c)); toast.error('Categoría eliminada'); }} className="text-red-300 hover:text-red-600 transition-colors">
                       <Trash2 size={14}/>
                     </button>
                   </div>
@@ -80,7 +83,7 @@ export default function CategoriesView() {
                 {customIncomeCategories.map(c => (
                   <div key={c} className="flex items-center justify-between px-3 py-2 bg-emerald-50 rounded-lg text-sm text-emerald-700">
                     {c}
-                    <button onClick={() => setCustomIncomeCategories(customIncomeCategories.filter(x => x !== c))} className="text-emerald-300 hover:text-emerald-600 transition-colors">
+                    <button onClick={() => { setCustomIncomeCategories(customIncomeCategories.filter(x => x !== c)); toast.error('Categoría eliminada'); }} className="text-emerald-300 hover:text-emerald-600 transition-colors">
                       <Trash2 size={14}/>
                     </button>
                   </div>

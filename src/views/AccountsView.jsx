@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { formatCurrency } from '../utils/helpers.jsx';
 import { Landmark, Plus, Edit2, Trash2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function AccountsView() {
   const { accounts, setAccounts, getAccountBalance } = useFinance();
@@ -14,6 +15,7 @@ export default function AccountsView() {
     if (!newAccount.name || !newAccount.initialBalance) return;
     setAccounts([...accounts, { ...newAccount, id: Date.now(), initialBalance: Number(newAccount.initialBalance) }]);
     setNewAccount({ name: '', type: 'Débito', initialBalance: '' });
+    toast.success('Cuenta creada exitosamente');
   };
 
   const handleDelete = (id) => setAccounts(accounts.filter(a => a.id !== id));
@@ -21,6 +23,7 @@ export default function AccountsView() {
   const saveEdit = () => {
     setAccounts(accounts.map(a => a.id === editingId ? { ...editForm, initialBalance: Number(editForm.initialBalance) } : a));
     setEditingId(null);
+    toast.success('Cuenta creada exitosamente');
   };
 
   return (
@@ -76,7 +79,7 @@ export default function AccountsView() {
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <button onClick={() => startEdit(acc)} className="p-1.5 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-md transition-colors"><Edit2 size={16}/></button>
-                  <button onClick={() => handleDelete(acc.id)} className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"><Trash2 size={16}/></button>
+                  <button onClick={() => { setAccounts(accounts.filter(a => a.id !== acc.id)); toast.error('Cuenta eliminada'); }} className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"><Trash2 size={16}/></button>
                 </div>
               </div>
               <div className="pt-3 border-t border-slate-50 mt-auto">

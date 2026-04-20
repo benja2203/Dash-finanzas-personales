@@ -9,6 +9,8 @@ import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
   Tooltip, LineChart, Line, ResponsiveContainer, CartesianGrid
 } from 'recharts';
+import toast from 'react-hot-toast';
+
 
 export default function DashboardView() {
   const [timeFilter, setTimeFilter] = useState('mensual');

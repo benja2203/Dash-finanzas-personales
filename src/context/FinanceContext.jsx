@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import toast from 'react-hot-toast';
 
 const FinanceContext = createContext();
 export const useFinance = () => useContext(FinanceContext);
@@ -83,15 +84,12 @@ export const FinanceProvider = ({ children }) => {
     if (user) {
       setSyncing(true);
       try {
-        // 👇 1. EL FILTRO PURIFICADOR: Convierte todo a texto y luego a objeto de nuevo. 
-        // Esto destruye automáticamente cualquier 'undefined' que esté molestando.
         const cleanState = JSON.parse(JSON.stringify(newState));
-        
         await setDoc(doc(db, 'users', user.uid), cleanState, { merge: true });
       } catch (error) {
         // 👇 2. EL ACUSETE: Si Firebase bloquea algo, ahora te saltará una alerta roja en la cara.
         console.error("🔥 Error crítico de Firebase:", error);
-        alert("Hubo un error guardando en la nube: " + error.message);
+        toast.error("Error de sincronización: " + error.message, { duration: 5000 });
       } finally {
         setSyncing(false);
       }
