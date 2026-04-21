@@ -1,148 +1,252 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useFinance } from '../context/FinanceContext';
-import { formatCurrency } from '../utils/helpers.jsx';
-import { Upload, Activity, Check, Trash2, AlertCircle } from 'lucide-react';
+import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, ArrowRight } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
 
 export default function ImportView() {
-  const { accounts, transactions, setTransactions, expenseCategories, incomeCategories } = useFinance();
-  const [rawText, setRawText] = useState('');
-  const [parsedData, setParsedData] = useState([]);
+  const { accounts, transactions, setTransactions } = useFinance();
+  const fileInputRef = useRef(null);
+
+  const [rawData, setRawData] = useState([]);
+  const [headers, setHeaders] = useState([]);
   const [selectedAccountId, setSelectedAccountId] = useState(accounts.length > 0 ? accounts[0].id : '');
+  const [step, setStep] = useState(1); 
+  
+  // 👇 Nuevo estado para saber si el Excel tiene 1 o 2 columnas de dinero
+  const [amountMode, setAmountMode] = useState('two'); // 'one' o 'two'
+  const [mapping, setMapping] = useState({ date: '', description: '', amount: '', charge: '', deposit: '' });
 
-  const handleParse = () => {
-    const lines = rawText.split('\n');
-    const results = [];
-    const dateRegex = /\b(\d{2})[\/\-](\d{2})[\/\-](\d{4}|\d{2})\b/;
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-    lines.forEach((line, index) => {
-      if (!line.trim()) return;
-      const dateMatch = line.match(dateRegex);
-      let dateObj = new Date().toISOString().split('T')[0];
-      if (dateMatch) {
-        const d = dateMatch[1], m = dateMatch[2];
-        let y = dateMatch[3];
-        if (y.length === 2) y = '20' + y;
-        dateObj = `${y}-${m}-${d}`;
-      }
-      let textWithoutDate = line.replace(dateRegex, '').trim();
-      const amountRegex = /(?:- ?)?\$?\s?(\d{1,3}(?:\.\d{3})*|\d+)(?:,\d+)?/g;
-      const amounts = [...textWithoutDate.matchAll(amountRegex)];
-      if (amounts.length > 0) {
-        const rawAmountStr = amounts[amounts.length - 1][0];
-        const isNegative = rawAmountStr.includes('-') || line.toUpperCase().includes('COMPRA') || line.toUpperCase().includes('PAGO');
-        let amountNum = Number(rawAmountStr.replace(/[^\d]/g, ''));
-        if (amountNum > 0) {
-          let desc = textWithoutDate.replace(rawAmountStr, '').replace(/\$|\./g, '').trim().replace(/\s{2,}/g, ' ');
-          if (desc.length > 35) desc = desc.substring(0, 35) + '...';
-          if (!desc) desc = 'Movimiento Bancario';
-          results.push({
-            id: 'imp_' + index + '_' + Date.now(),
-            date: dateObj, description: desc, amount: amountNum,
-            type: isNegative ? 'gasto' : 'ingreso',
-            category: isNegative ? 'Otros' : 'Salario',
-            accountId: Number(selectedAccountId)
-          });
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        // Convertimos el excel a JSON, leyendo la primera fila como encabezados
+        const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+
+        if (data.length > 0) {
+          setHeaders(data[0]); 
+          setRawData(data.slice(1)); 
+          setStep(2);
+          toast.success('Excel leído correctamente');
         }
+      } catch (err) {
+        toast.error('Error al leer el archivo');
       }
-    });
-    setParsedData(results);
+    };
+    reader.readAsBinaryString(file);
   };
 
-  const updateParsedItem = (id, field, value) => setParsedData(parsedData.map(item => item.id === id ? { ...item, [field]: value } : item));
-  const removeParsedItem = (id) => setParsedData(parsedData.filter(item => item.id !== id));
+  // 👇 FUNCIÓN CRÍTICA: Limpia formatos como "$ 120.000" a "120000"
+  const cleanNumber = (val) => {
+    if (!val) return 0;
+    if (typeof val === 'number') return val;
+    // Convierte a texto, quita $, espacios y puntos de miles. Cambia coma por punto decimal si hubiera.
+    let cleaned = val.toString().replace(/\$/g, '').replace(/\s/g, '').replace(/\./g, '');
+    cleaned = cleaned.replace(/,/g, '.'); 
+    return parseFloat(cleaned) || 0;
+  };
 
-  const importToMain = () => {
-    setTransactions([...transactions, ...parsedData]);
-    setParsedData([]);
-    setRawText('');
+  // 👇 FUNCIÓN CRÍTICA: Convierte "17-04-2026" a "2026-04-17" para que React lo entienda
+  const cleanDate = (val) => {
+    if (!val) return new Date().toISOString().split('T')[0];
+    if (typeof val === 'string' && val.includes('-')) {
+      const parts = val.split('-');
+      // Si viene en formato DD-MM-YYYY
+      if (parts.length === 3 && parts[0].length <= 2 && parts[2].length === 4) {
+        return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      }
+    }
+    return val;
+  };
+
+  const processImport = () => {
+    // Validamos que los campos requeridos estén seleccionados
+    if (!mapping.date || !mapping.description) {
+      toast.error('Por favor mapea Fecha y Descripción');
+      return;
+    }
+    if (amountMode === 'one' && !mapping.amount) {
+      toast.error('Por favor mapea la columna de Monto');
+      return;
+    }
+    if (amountMode === 'two' && (!mapping.charge || !mapping.deposit)) {
+      toast.error('Por favor mapea las columnas Cargo y Abono');
+      return;
+    }
+
+    const dateIdx = headers.indexOf(mapping.date);
+    const descIdx = headers.indexOf(mapping.description);
+
+    const importedTxs = rawData.map((row, index) => {
+      let finalAmount = 0;
+      let type = 'gasto';
+
+      // 1. EXTRAER EL DINERO SEGÚN EL MODO
+      if (amountMode === 'two') {
+        const cargoVal = cleanNumber(row[headers.indexOf(mapping.charge)]);
+        const abonoVal = cleanNumber(row[headers.indexOf(mapping.deposit)]);
+
+        if (cargoVal > 0) {
+          finalAmount = cargoVal;
+          type = 'gasto';
+        } else if (abonoVal > 0) {
+          finalAmount = abonoVal;
+          type = 'ingreso';
+        } else {
+          return null; // Fila vacía o sin dinero
+        }
+      } else {
+        const amtVal = cleanNumber(row[headers.indexOf(mapping.amount)]);
+        if (amtVal === 0) return null;
+        finalAmount = Math.abs(amtVal);
+        // En bancos, los gastos suelen venir en negativo
+        type = amtVal < 0 ? 'gasto' : 'ingreso';
+      }
+
+      if (!finalAmount) return null;
+
+      // 2. CONSTRUIR LA TRANSACCIÓN
+      return {
+        id: Date.now() + index, // Añadimos index para que no hayan empates de milisegundos
+        date: cleanDate(row[dateIdx]),
+        description: row[descIdx] || 'Sin descripción',
+        amount: finalAmount,
+        type: type,
+        category: type === 'gasto' ? 'Otros' : 'Salario', // Categoría genérica por defecto
+        accountId: Number(selectedAccountId),
+        notes: 'Importado de Excel'
+      };
+    }).filter(tx => tx !== null); // Quitamos las filas que eran texto vacío o nulas
+
+    if (importedTxs.length === 0) {
+      toast.error('No se detectaron movimientos. Revisa las columnas.');
+      return;
+    }
+
+    setTransactions([...transactions, ...importedTxs]);
+    toast.success(`¡${importedTxs.length} movimientos agregados con éxito!`);
+    reset();
+  };
+
+  const reset = () => {
+    setStep(1);
+    setRawData([]);
+    setMapping({ date: '', description: '', amount: '', charge: '', deposit: '' });
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-          <Upload className="text-blue-600" /> Importador Inteligente
-        </h2>
-        <p className="text-slate-500 mt-2">Copia el texto de tus movimientos bancarios y pégalo aquí abajo.</p>
+    <div className="max-w-4xl mx-auto space-y-6">
+      <div className="flex justify-between items-end">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-800">Importador Bancario</h2>
+          <p className="text-slate-500">Sube tu cartola (Excel/CSV) y ahorra tiempo registrando.</p>
+        </div>
+        {step > 1 && (
+          <button onClick={reset} className="text-sm font-medium text-red-500 hover:underline">Cancelar</button>
+        )}
       </div>
 
-      {parsedData.length === 0 ? (
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-4">
-          <div className="flex flex-col md:flex-row gap-4 items-start md:items-center bg-blue-50/50 p-4 rounded-xl border border-blue-100/50">
-            <AlertCircle className="text-blue-500 flex-shrink-0" />
-            <div className="text-sm text-blue-800">
-              <strong>¿A qué cuenta irán estos movimientos?</strong> Selecciona la cuenta antes de pegar el texto.
-            </div>
-            <select value={selectedAccountId} onChange={e => setSelectedAccountId(e.target.value)} className="p-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none min-w-[200px] ml-auto font-medium">
-              {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
+      {step === 1 && (
+        <div 
+          onClick={() => fileInputRef.current.click()}
+          className="bg-white border-2 border-dashed border-slate-200 rounded-3xl p-12 flex flex-col items-center justify-center gap-4 hover:border-blue-400 hover:bg-blue-50/30 transition-all cursor-pointer group"
+        >
+          <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv, .xlsx, .xls" className="hidden" />
+          <div className="p-4 bg-blue-50 text-blue-600 rounded-full group-hover:scale-110 transition-transform">
+            <Upload size={32} />
           </div>
-          <textarea
-            className="w-full h-64 p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm bg-slate-50"
-            placeholder={`Ejemplo:\n\n12/04/2026 SUPERMERCADO LIDER -45.000\n13-04-2026 TRANSFERENCIA JUAN PEREZ $150.000\n15/04/2026 PAGO SPOTIFY 6.500`}
-            value={rawText}
-            onChange={(e) => setRawText(e.target.value)}
-          />
-          <button onClick={handleParse} disabled={!rawText.trim()} className="w-full md:w-auto ml-auto px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-            <Activity size={20} /> Analizar Texto
-          </button>
+          <div className="text-center">
+            <p className="text-lg font-bold text-slate-700">Haz clic para subir tu Excel o CSV</p>
+          </div>
         </div>
-      ) : (
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-4">
-          <div className="flex justify-between items-center">
-            <h3 className="text-lg font-bold text-slate-800">Vista Previa ({parsedData.length} transacciones)</h3>
-            <button onClick={() => setParsedData([])} className="text-sm text-slate-500 hover:text-slate-800">Cancelar</button>
+      )}
+
+      {step === 2 && (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="p-6 border-b border-slate-50 bg-slate-50/50">
+            <h3 className="font-bold text-slate-800 flex items-center gap-2">
+              <FileSpreadsheet className="text-emerald-500" size={20}/> 
+              Configura tu importación
+            </h3>
           </div>
-          <p className="text-sm text-slate-500">Revisa y ajusta antes de importar.</p>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[800px]">
-              <thead>
-                <tr className="border-b border-slate-200 text-sm text-slate-500">
-                  <th className="pb-3 font-medium w-24">Fecha</th>
-                  <th className="pb-3 font-medium">Descripción</th>
-                  <th className="pb-3 font-medium w-32">Tipo</th>
-                  <th className="pb-3 font-medium w-32 text-right">Monto</th>
-                  <th className="pb-3 font-medium w-40 pl-4">Categoría</th>
-                  <th className="pb-3 font-medium w-10"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {parsedData.map(item => (
-                  <tr key={item.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
-                    <td className="py-2 pr-2">
-                      <input type="date" value={item.date} onChange={e => updateParsedItem(item.id, 'date', e.target.value)} className="w-full text-xs p-1 border rounded bg-transparent outline-none"/>
-                    </td>
-                    <td className="py-2 pr-2">
-                      <input type="text" value={item.description} onChange={e => updateParsedItem(item.id, 'description', e.target.value)} className="w-full text-sm font-semibold p-1 border border-transparent hover:border-slate-200 rounded bg-transparent outline-none"/>
-                    </td>
-                    <td className="py-2 pr-2">
-                      <select value={item.type} onChange={e => updateParsedItem(item.id, 'type', e.target.value)} className={`w-full text-xs p-1.5 border rounded outline-none font-bold ${item.type === 'ingreso' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
-                        <option value="gasto">Gasto (-)</option>
-                        <option value="ingreso">Ingreso (+)</option>
-                      </select>
-                    </td>
-                    <td className="py-2 pr-2 text-right">
-                      <span className={`font-bold text-sm ${item.type === 'ingreso' ? 'text-emerald-600' : 'text-red-600'}`}>
-                        {item.type === 'ingreso' ? '+' : '-'}{formatCurrency(item.amount)}
-                      </span>
-                    </td>
-                    <td className="py-2 pl-4 pr-2">
-                      <select value={item.category} onChange={e => updateParsedItem(item.id, 'category', e.target.value)} className="w-full text-xs p-1.5 border rounded bg-white outline-none">
-                        {(item.type === 'gasto' ? expenseCategories : incomeCategories).map(c => <option key={c} value={c}>{c}</option>)}
-                      </select>
-                    </td>
-                    <td className="py-2 text-right">
-                      <button onClick={() => removeParsedItem(item.id)} className="p-1 text-slate-300 hover:text-red-500 rounded"><Trash2 size={16}/></button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          
+          <div className="p-6 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-600">¿A qué cuenta pertenece?</label>
+                <select value={selectedAccountId} onChange={e => setSelectedAccountId(e.target.value)} className="w-full p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                  {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-600">¿Cómo vienen los montos en tu Excel?</label>
+                <select value={amountMode} onChange={e => setAmountMode(e.target.value)} className="w-full p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="two">Separado en dos columnas (Cargo y Abono)</option>
+                  <option value="one">Todo en una columna (+ y -)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+              <div className="space-y-2">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-wider ml-1">Columna Fecha</label>
+                <select value={mapping.date} onChange={e => setMapping({...mapping, date: e.target.value})} className="w-full p-2 bg-white rounded-lg outline-none border focus:border-blue-500 text-sm">
+                  <option value="">Seleccionar...</option>
+                  {headers.map(h => <option key={h} value={h}>{h}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-wider ml-1">Columna Descripción</label>
+                <select value={mapping.description} onChange={e => setMapping({...mapping, description: e.target.value})} className="w-full p-2 bg-white rounded-lg outline-none border focus:border-blue-500 text-sm">
+                  <option value="">Seleccionar...</option>
+                  {headers.map(h => <option key={h} value={h}>{h}</option>)}
+                </select>
+              </div>
+
+              {/* RENDERIZADO CONDICIONAL DE COLUMNAS DE DINERO */}
+              {amountMode === 'two' ? (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-slate-400 uppercase tracking-wider ml-1 text-red-500">Col. Cargo (Salida)</label>
+                    <select value={mapping.charge} onChange={e => setMapping({...mapping, charge: e.target.value})} className="w-full p-2 bg-white rounded-lg outline-none border focus:border-blue-500 text-sm">
+                      <option value="">Seleccionar...</option>
+                      {headers.map(h => <option key={h} value={h}>{h}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-slate-400 uppercase tracking-wider ml-1 text-emerald-500">Col. Abono (Entrada)</label>
+                    <select value={mapping.deposit} onChange={e => setMapping({...mapping, deposit: e.target.value})} className="w-full p-2 bg-white rounded-lg outline-none border focus:border-blue-500 text-sm">
+                      <option value="">Seleccionar...</option>
+                      {headers.map(h => <option key={h} value={h}>{h}</option>)}
+                    </select>
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-wider ml-1 text-blue-500">Columna Monto (Única)</label>
+                  <select value={mapping.amount} onChange={e => setMapping({...mapping, amount: e.target.value})} className="w-full p-2 bg-white rounded-lg outline-none border focus:border-blue-500 text-sm">
+                    <option value="">Seleccionar...</option>
+                    {headers.map(h => <option key={h} value={h}>{h}</option>)}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            <button 
+              onClick={processImport}
+              className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold hover:bg-blue-600 transition-all flex items-center justify-center gap-2"
+            >
+              Procesar e Importar Archivo <ArrowRight size={20}/>
+            </button>
           </div>
-          <button onClick={importToMain} className="w-full px-6 py-4 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 mt-4 text-lg shadow-sm">
-            <Check size={24} /> Confirmar e Importar
-          </button>
         </div>
       )}
     </div>

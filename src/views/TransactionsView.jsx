@@ -28,18 +28,21 @@ export default function TransactionsView() {
     setNewTx({...newTx, type: newType, category: newCategory});
   };
 
-  const handleAdd = (e) => {
+const handleAdd = (e) => {
     e.preventDefault();
     if (!newTx.amount || !newTx.description || !newTx.accountId) return;
-    if (newTx.type === 'transferencia' && newTx.accountId === newTx.targetAccountId) return;
+    if (newTx.type === 'transferencia' && newTx.accountId === newTx.targetAccountId) {
+      toast.error('No puedes transferir a la misma cuenta');
+      return;
+    }
     
     const newTransaction = {
       ...newTx, 
       id: Date.now(), 
       amount: Number(newTx.amount), 
-      accountId: newTx.accountId, // Quitamos el Number() por si tus IDs son alfanuméricos
-      // 👇 AQUÍ ESTÁ LA MAGIA: Cambiamos undefined por null
-      targetAccountId: newTx.type === 'transferencia' ? newTx.targetAccountId : null
+      // 👇 EL ARREGLO: Volvemos a envolver los IDs en Number()
+      accountId: Number(newTx.accountId),
+      targetAccountId: newTx.type === 'transferencia' ? Number(newTx.targetAccountId) : null
     };
     
     setTransactions([...transactions, newTransaction]);
@@ -50,20 +53,25 @@ export default function TransactionsView() {
       notes: '', 
       category: newTx.type === 'gasto' ? 'Alimentación' : newTx.type === 'transferencia' ? 'Transferencia' : 'Salario' 
     });
-    toast.success('Movimiento registrado');
+    
+    toast.success('Movimiento registrado correctamente');
+  };
+
+  const saveEditTx = () => {
+    setTransactions(transactions.map(t => t.id === editingTxId ? {
+      ...editTxForm, 
+      amount: Number(editTxForm.amount), 
+      // 👇 También lo forzamos a número aquí por si editas un movimiento
+      accountId: Number(editTxForm.accountId),
+      targetAccountId: editTxForm.type === 'transferencia' ? Number(editTxForm.targetAccountId) : null
+    } : t));
+    setEditingTxId(null);
+    toast.success('Cambios guardados');
   };
 
   const handleDelete = (id) => {
     setTransactions(transactions.filter(t => t.id !== id));
     toast.error('Movimiento eliminado');
-  };
-
-  const saveEditTx = () => {
-    setTransactions(transactions.map(t => t.id === editingTxId ? {
-      ...editTxForm, amount: Number(editTxForm.amount), accountId: Number(editTxForm.accountId)
-    } : t));
-    setEditingTxId(null);
-    toast.success('Cambios guardados');
   };
 
   const availableCategories = newTx.type === 'gasto' ? expenseCategories : newTx.type === 'ingreso' ? incomeCategories : ['Transferencia'];
@@ -79,7 +87,14 @@ export default function TransactionsView() {
       if (periodFilter === 'mes') return t.date.startsWith(specificMonth);
       return true;
     })
-    .sort((a, b) => new Date(b.date) - new Date(a.date));
+    .sort((a, b) => {
+      const dateDiff = new Date(b.date) - new Date(a.date);
+      if (dateDiff !== 0) {
+        return dateDiff; // Si son de días distintos, el más nuevo gana
+      }
+      return b.id - a.id; // Si son del mismo día, el que tiene el ID (milisegundo) más grande gana
+    });
+    
 
   const filteredIn = displayedTransactions.filter(t => t.type === 'ingreso').reduce((s, t) => s + t.amount, 0);
   const filteredOut = displayedTransactions.filter(t => t.type === 'gasto').reduce((s, t) => s + t.amount, 0);
@@ -220,8 +235,8 @@ export default function TransactionsView() {
                         <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md flex items-center gap-1">
                           <Building2 size={12}/>
                           {t.type === 'transferencia'
-                            ? `${accounts.find(a => a.id === t.accountId)?.name || '?'} → ${accounts.find(a => a.id === t.targetAccountId)?.name || '?'}`
-                            : accounts.find(a => a.id === t.accountId)?.name || '?'}
+                            ? `${accounts.find(a => a.id === t.accountId)?.name || 'Cuenta Eliminada'} → ${accounts.find(a => a.id === t.targetAccountId)?.name || 'Cuenta Eliminada'}`
+                            : accounts.find(a => a.id === t.accountId)?.name || 'Cuenta Eliminada'}
                         </span>
                       </div>
                     </div>
