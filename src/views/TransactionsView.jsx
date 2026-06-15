@@ -218,15 +218,15 @@ const handleAdd = (e) => {
                   </div>
                 </div>
               ) : (
-                <div className="flex justify-between items-center p-4 border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors">
-                  <div className="flex items-center gap-4">
+                <div className="flex justify-between items-center gap-2 p-4 border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center gap-4 min-w-0 flex-1">
                     <div className={`p-3 rounded-full flex-shrink-0 bg-slate-100 ${t.isRecurring ? 'text-purple-600' : t.type === 'ingreso' ? 'text-emerald-600' : t.type === 'transferencia' ? 'text-blue-600' : 'text-slate-600'}`}>
                       {t.isRecurring ? <Repeat size={22}/> : getCategoryIcon(t.category, 22, "")}
                     </div>
-                    <div>
-                      <p className="font-semibold text-slate-800 text-base leading-tight">{t.description}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-slate-800 text-base leading-tight truncate">{t.description}</p>
                       {/* ESTO MUESTRA LA NOTA SI ES QUE EXISTE */}
-                      {t.notes && ( <p className="text-xs text-slate-400 mt-0.5 italic">{t.notes}</p>)}
+                      {t.notes && ( <p className="text-xs text-slate-400 mt-0.5 italic truncate">{t.notes}</p>)}
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <span className="text-sm text-slate-500">{t.date}</span>
                         <span className="w-1 h-1 bg-slate-300 rounded-full"/>
@@ -241,8 +241,8 @@ const handleAdd = (e) => {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`font-bold text-lg whitespace-nowrap ${t.type === 'ingreso' ? 'text-emerald-600' : t.type === 'transferencia' ? 'text-blue-600' : 'text-slate-800'}`}>
+                  <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                    <span className={`font-bold text-base sm:text-lg whitespace-nowrap ${t.type === 'ingreso' ? 'text-emerald-600' : t.type === 'transferencia' ? 'text-blue-600' : 'text-slate-800'}`}>
                       {t.type === 'ingreso' ? '+' : t.type === 'transferencia' ? '' : '-'}{formatCurrency(t.amount)}
                     </span>
                     <button onClick={() => { setEditingTxId(t.id); setEditTxForm({...t}); }} className="p-2 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors">
