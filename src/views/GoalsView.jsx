@@ -1,15 +1,17 @@
 import { useState } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { formatCurrency } from '../utils/helpers.jsx';
-import { Plus, Trash2, Edit2, Star } from 'lucide-react';
+import { Plus, Trash2, Edit2, Star, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function GoalsView() {
-  const { goals, setGoals } = useFinance();
+  // 👇 Traemos cuentas y movimientos para que el ahorro salga de una cuenta real
+  const { goals, setGoals, accounts, transactions, setTransactions } = useFinance();
   const [newGoal, setNewGoal] = useState({ name: '', targetAmount: '' });
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [savingAmounts, setSavingAmounts] = useState({});
+  const [savingAccounts, setSavingAccounts] = useState({}); // Cuenta desde la que se ahorra/retira
 
   const handleAdd = (e) => {
     e.preventDefault();
@@ -26,17 +28,82 @@ export default function GoalsView() {
     toast.success('Meta editada');
   };
 
+  // Resuelve la cuenta seleccionada (o la primera disponible)
+  const resolveAccountId = (id) => {
+    const raw = savingAccounts[id] || (accounts.length > 0 ? accounts[0].id : null);
+    return Number(raw);
+  };
+
+  // Abonar: aparta dinero a la meta y lo descuenta de la cuenta elegida (genera un movimiento)
   const addSaving = (id) => {
+    const goal = goals.find(g => g.id === id);
     const amount = Number(savingAmounts[id]);
+    const accountIdNumber = resolveAccountId(id);
+
     if (!amount || amount <= 0) return;
+    if (!accountIdNumber) {
+      toast.error("Debes crear al menos una cuenta en 'Cuentas' para poder ahorrar.");
+      return;
+    }
+
     setGoals(goals.map(g => g.id === id ? { ...g, currentAmount: Math.min(g.targetAmount, g.currentAmount + amount) } : g));
+
+    const newTx = {
+      id: Date.now() + Math.random(),
+      type: 'gasto',
+      amount,
+      description: `Ahorro: ${goal.name}`,
+      notes: 'Apartado a meta de ahorro',
+      category: 'Otros',
+      accountId: accountIdNumber,
+      date: new Date().toISOString().split('T')[0]
+    };
+    setTimeout(() => setTransactions([...transactions, newTx]), 500);
+
     setSavingAmounts({ ...savingAmounts, [id]: '' });
-    toast.success('Se ha abonado correctamente');
+    toast.success('Ahorro registrado y descontado de tu cuenta');
+  };
+
+  // Retirar: devuelve dinero de la meta a la cuenta elegida (genera un ingreso)
+  const withdrawSaving = (id) => {
+    const goal = goals.find(g => g.id === id);
+    const amount = Number(savingAmounts[id]);
+    const accountIdNumber = resolveAccountId(id);
+
+    if (!amount || amount <= 0) return;
+    if (!accountIdNumber) {
+      toast.error("Debes crear al menos una cuenta en 'Cuentas' para poder retirar.");
+      return;
+    }
+    if (amount > goal.currentAmount) {
+      toast.error('No puedes retirar más de lo que tienes ahorrado.');
+      return;
+    }
+
+    setGoals(goals.map(g => g.id === id ? { ...g, currentAmount: Math.max(0, g.currentAmount - amount) } : g));
+
+    const newTx = {
+      id: Date.now() + Math.random(),
+      type: 'ingreso',
+      amount,
+      description: `Retiro de ahorro: ${goal.name}`,
+      notes: 'Devuelto desde meta de ahorro',
+      category: 'Otros',
+      accountId: accountIdNumber,
+      date: new Date().toISOString().split('T')[0]
+    };
+    setTimeout(() => setTransactions([...transactions, newTx]), 500);
+
+    setSavingAmounts({ ...savingAmounts, [id]: '' });
+    toast.success('Retiro devuelto a tu cuenta');
   };
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-slate-800">Ahorros y Objetivos</h2>
+      <div>
+        <h2 className="text-2xl font-bold text-slate-800">Ahorros y Objetivos</h2>
+        <p className="text-slate-500 mt-1 text-sm">Cada vez que abonas, el dinero <span className="font-semibold">se descuenta de la cuenta que elijas</span>. Si retiras, vuelve a esa cuenta.</p>
+      </div>
 
       <form onSubmit={handleAdd} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row gap-3">
         <input type="text" placeholder="¿Qué quieres lograr?" value={newGoal.name} onChange={e => setNewGoal({...newGoal, name: e.target.value})} className="p-2 border rounded-lg flex-1 focus:ring-2 focus:ring-blue-500 outline-none" required />
@@ -90,9 +157,26 @@ export default function GoalsView() {
                 <div className="flex flex-col"><span className="text-xs text-slate-400">Ahorrado</span><span className="text-slate-800">{formatCurrency(g.currentAmount)}</span></div>
                 <div className="flex flex-col text-right"><span className="text-xs text-slate-400">Meta</span><span className="text-slate-800">{formatCurrency(g.targetAmount)}</span></div>
               </div>
-              <div className="flex gap-2 mt-2">
-                <input type="number" placeholder="Monto a ahorrar" value={savingAmounts[g.id] || ''} onChange={e => setSavingAmounts({...savingAmounts, [g.id]: e.target.value})} className="flex-1 p-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" min="1" />
-                <button onClick={() => addSaving(g.id)} className="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm font-bold hover:bg-blue-100 transition-colors whitespace-nowrap">+ Ahorrar</button>
+              <div className="flex flex-col gap-2 mt-2 pt-3 border-t border-slate-50">
+                <select
+                  value={savingAccounts[g.id] || (accounts.length > 0 ? accounts[0].id : '')}
+                  onChange={e => setSavingAccounts({...savingAccounts, [g.id]: e.target.value})}
+                  className="w-full p-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none text-slate-600 bg-slate-50"
+                >
+                  {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  {accounts.length === 0 && <option value="">Sin cuentas</option>}
+                </select>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input type="number" placeholder="Monto" value={savingAmounts[g.id] || ''} onChange={e => setSavingAmounts({...savingAmounts, [g.id]: e.target.value})} className="flex-1 p-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" min="1" />
+                  <div className="flex gap-2">
+                    <button onClick={() => addSaving(g.id)} className="flex-1 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm font-bold hover:bg-blue-100 transition-colors whitespace-nowrap flex items-center justify-center gap-1">
+                      <ArrowUpRight size={16}/> Abonar
+                    </button>
+                    <button onClick={() => withdrawSaving(g.id)} className="flex-1 px-3 py-2 bg-slate-100 text-slate-600 rounded-lg text-sm font-bold hover:bg-slate-200 transition-colors whitespace-nowrap flex items-center justify-center gap-1">
+                      <ArrowDownLeft size={16}/> Retirar
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           );

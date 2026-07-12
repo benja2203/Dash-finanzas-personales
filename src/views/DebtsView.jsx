@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { formatCurrency } from '../utils/helpers.jsx';
-import { Plus, Trash2, Edit2, Banknote, ArrowUpRight, ArrowDownLeft, CheckCircle2 } from 'lucide-react';
+import { Plus, Trash2, Edit2, Banknote, ArrowUpRight, ArrowDownLeft, CheckCircle2, CalendarClock } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function DebtsView() {
@@ -63,9 +63,12 @@ export default function DebtsView() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-slate-800">Deudas por Pagar / Cobrar</h2>
+      <div>
+        <h2 className="text-2xl font-bold text-slate-800">Deudas por Pagar / Cobrar</h2>
+        <p className="text-slate-500 mt-1 text-sm">La fecha corresponde al <span className="font-semibold">plazo límite</span>: hasta cuándo tienes para pagar (o cobrar) la deuda.</p>
+      </div>
 
-      <form onSubmit={handleAdd} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row gap-3 items-center">
+      <form onSubmit={handleAdd} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row gap-3 items-stretch md:items-end">
         <div className="flex bg-slate-100 p-1 rounded-xl w-full md:w-auto flex-shrink-0">
           <button type="button" onClick={() => setNewDebt({...newDebt, type: 'por_pagar'})} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${newDebt.type === 'por_pagar' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-500'}`}>Yo debo</button>
           <button type="button" onClick={() => setNewDebt({...newDebt, type: 'por_cobrar'})} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${newDebt.type === 'por_cobrar' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500'}`}>Me deben</button>
@@ -73,7 +76,12 @@ export default function DebtsView() {
 
         <input type="text" placeholder="Concepto o Persona" value={newDebt.name} onChange={e => setNewDebt({...newDebt, name: e.target.value})} className={`p-2 border rounded-lg flex-1 outline-none focus:ring-2 ${newDebt.type === 'por_pagar' ? 'focus:ring-red-500' : 'focus:ring-emerald-500'}`} required />
         <input type="number" placeholder="Monto Total" value={newDebt.totalAmount} onChange={e => setNewDebt({...newDebt, totalAmount: e.target.value})} className={`p-2 border rounded-lg w-full md:w-32 outline-none focus:ring-2 ${newDebt.type === 'por_pagar' ? 'focus:ring-red-500' : 'focus:ring-emerald-500'}`} required min="1" />
-        <input type="date" value={newDebt.dueDate} onChange={e => setNewDebt({...newDebt, dueDate: e.target.value})} className={`p-2 border rounded-lg w-full md:w-auto outline-none focus:ring-2 ${newDebt.type === 'por_pagar' ? 'focus:ring-red-500' : 'focus:ring-emerald-500'}`} required />
+        <div className="flex flex-col w-full md:w-auto">
+          <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1 ml-1">
+            {newDebt.type === 'por_pagar' ? 'Pagar antes de' : 'Cobrar antes de'}
+          </label>
+          <input type="date" value={newDebt.dueDate} onChange={e => setNewDebt({...newDebt, dueDate: e.target.value})} className={`p-2 border rounded-lg w-full md:w-auto outline-none focus:ring-2 ${newDebt.type === 'por_pagar' ? 'focus:ring-red-500' : 'focus:ring-emerald-500'}`} required />
+        </div>
         <button type="submit" className={`${newDebt.type === 'por_pagar' ? 'bg-red-500 hover:bg-red-600' : 'bg-emerald-500 hover:bg-emerald-600'} text-white p-2 rounded-lg flex items-center justify-center gap-2 font-medium w-full md:w-auto px-4 transition-colors`}>
           <Plus size={20} /> Nueva
         </button>
@@ -92,6 +100,7 @@ export default function DebtsView() {
                 <p className={`text-sm font-bold text-${themeColor}-600 mb-1`}>Editando Registro</p>
                 <input type="text" value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} className={`p-2 border rounded-lg focus:ring-2 focus:ring-${themeColor}-500 outline-none`} placeholder="Nombre" />
                 <input type="number" value={editForm.totalAmount} onChange={e => setEditForm({...editForm, totalAmount: e.target.value})} className={`p-2 border rounded-lg focus:ring-2 focus:ring-${themeColor}-500 outline-none`} placeholder="Monto Total" />
+                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide -mb-1 ml-1">Plazo límite de pago / cobro</label>
                 <input type="date" value={editForm.dueDate} onChange={e => setEditForm({...editForm, dueDate: e.target.value})} className={`p-2 border rounded-lg focus:ring-2 focus:ring-${themeColor}-500 outline-none`} />
                 <div className="flex gap-2 mt-2">
                   <button onClick={saveEdit} className={`flex-1 bg-${themeColor}-500 text-white py-2 rounded-lg text-sm font-medium hover:bg-${themeColor}-600 transition-colors`}>Guardar</button>
@@ -102,6 +111,8 @@ export default function DebtsView() {
           }
 
           const progress = (d.paidAmount / d.totalAmount) * 100;
+          const todayStr = new Date().toISOString().split('T')[0];
+          const isOverdue = !isCompleted && d.dueDate && d.dueDate < todayStr;
           return (
             <div key={d.id} className={`bg-white p-4 sm:p-5 rounded-2xl shadow-sm border flex flex-col transition-all ${isCompleted ? 'border-slate-200 bg-slate-50' : 'border-slate-100'}`}>
               <div className="flex justify-between mb-2 items-start gap-2">
@@ -121,7 +132,11 @@ export default function DebtsView() {
               </div>
               
               <div className="flex justify-between text-sm text-slate-500 mb-4 mt-2 gap-2">
-                <span className="truncate">Vence: {d.dueDate}</span>
+                <span className={`truncate flex items-center gap-1 ${isOverdue ? 'text-red-500 font-semibold' : ''}`}>
+                  <CalendarClock size={13} className="flex-shrink-0" />
+                  {isPagar ? 'Pagar antes:' : 'Cobrar antes:'} {d.dueDate}
+                  {isOverdue && <span className="ml-1 text-[10px] font-bold bg-red-100 text-red-600 px-1.5 py-0.5 rounded uppercase">Vencida</span>}
+                </span>
                 <span className="flex-shrink-0">Falta: {formatCurrency(d.totalAmount - d.paidAmount)}</span>
               </div>
               

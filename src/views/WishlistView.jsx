@@ -1,15 +1,19 @@
 import { useState } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { formatCurrency } from '../utils/helpers.jsx';
-import { Plus, Trash2, CheckCircle2, Circle, Package, ShoppingBag } from 'lucide-react';
+import { Plus, Trash2, CheckCircle2, Circle, Package, ShoppingBag, SlidersHorizontal } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function WishlistView() {
   // 👇 Traemos accounts y transactions del contexto
   const { wishlist, setWishlist, accounts, transactions, setTransactions } = useFinance();
-  
+
   const [newItem, setNewItem] = useState({ name: '', price: '', priority: 'Media' });
   const [paymentAccounts, setPaymentAccounts] = useState({}); // Memoria para el selector de cuentas
+
+  // 👇 Filtros para no perderse en listas largas
+  const [filterPriority, setFilterPriority] = useState('Todas');
+  const [filterStatus, setFilterStatus] = useState('todas');
 
   const handleAdd = (e) => {
     e.preventDefault();
@@ -52,6 +56,12 @@ export default function WishlistView() {
     toast.success('¡Artículo comprado y descontado de tu cuenta! 🎉');
   };
 
+  // Aplicamos filtros y luego el orden (pendientes primero)
+  const visibleWishlist = wishlist
+    .filter(w => filterPriority === 'Todas' || w.priority === filterPriority)
+    .filter(w => filterStatus === 'todas' || (filterStatus === 'pendientes' ? !w.purchased : w.purchased))
+    .sort((a, b) => a.purchased === b.purchased ? 0 : a.purchased ? 1 : -1);
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-slate-800">Cosas que Comprar</h2>
@@ -69,8 +79,31 @@ export default function WishlistView() {
         </button>
       </form>
 
+      {/* 👇 Barra de filtros */}
+      {wishlist.length > 0 && (
+        <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex flex-col sm:flex-row gap-3 sm:items-center">
+          <span className="flex items-center gap-2 text-sm font-medium text-slate-500 flex-shrink-0">
+            <SlidersHorizontal size={16} /> Filtrar:
+          </span>
+          <div className="flex flex-col sm:flex-row gap-2 flex-1">
+            <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)} className="p-2 border rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none text-slate-600 flex-1">
+              <option value="Todas">Todas las prioridades</option>
+              <option value="Alta">Prioridad Alta</option>
+              <option value="Media">Prioridad Media</option>
+              <option value="Baja">Prioridad Baja</option>
+            </select>
+            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="p-2 border rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none text-slate-600 flex-1">
+              <option value="todas">Todas (pendientes y compradas)</option>
+              <option value="pendientes">Solo pendientes</option>
+              <option value="compradas">Solo compradas</option>
+            </select>
+          </div>
+          <span className="text-xs text-slate-400 font-medium flex-shrink-0">{visibleWishlist.length} de {wishlist.length}</span>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 xl:gap-6">
-        {wishlist.sort((a, b) => a.purchased === b.purchased ? 0 : a.purchased ? 1 : -1).map(w => (
+        {visibleWishlist.map(w => (
           <div key={w.id} className={`p-4 sm:p-5 rounded-2xl border transition-all flex flex-col ${w.purchased ? 'bg-slate-50 border-slate-200' : 'bg-white border-slate-100 shadow-sm'}`}>
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -129,6 +162,7 @@ export default function WishlistView() {
           </div>
         ))}
         {wishlist.length === 0 && <p className="text-slate-400 font-medium col-span-full text-center py-8">No tienes nada en tu lista de deseos por ahora.</p>}
+        {wishlist.length > 0 && visibleWishlist.length === 0 && <p className="text-slate-400 font-medium col-span-full text-center py-8">Ningún artículo coincide con los filtros seleccionados.</p>}
       </div>
     </div>
   );

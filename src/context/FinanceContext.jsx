@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -153,6 +153,36 @@ export const FinanceProvider = ({ children }) => {
       saveData({ ...getCurrentState(), transactions: newTransactions, subscriptions: updatedSubs });
     }
   }, [loaded]);
+
+  // 🔔 Notificaciones de presupuesto: avisan cuando te acercas o te pasas del límite,
+  // aunque no estés mirando la pestaña de Presupuestos. Usamos un ref para no repetir
+  // la misma alerta una y otra vez durante la sesión.
+  const notifiedBudgets = useRef(new Set());
+  useEffect(() => {
+    if (!loaded) return;
+    const currentMonth = new Date().toISOString().substring(0, 7);
+    budgets.forEach(b => {
+      const spent = transactions
+        .filter(t => t.type === 'gasto' && t.category === b.category && t.date.startsWith(currentMonth))
+        .reduce((s, t) => s + t.amount, 0);
+
+      const overKey = `over-${b.category}-${currentMonth}`;
+      const warnKey = `warn-${b.category}-${currentMonth}`;
+
+      if (spent > b.limit) {
+        if (!notifiedBudgets.current.has(overKey)) {
+          notifiedBudgets.current.add(overKey);
+          notifiedBudgets.current.add(warnKey); // si ya se pasó, no tiene sentido el aviso de "cuidado"
+          toast.error(`Te pasaste del presupuesto de ${b.category}`, { duration: 5000, icon: '🚨' });
+        }
+      } else if (spent >= b.limit * 0.8) {
+        if (!notifiedBudgets.current.has(warnKey)) {
+          notifiedBudgets.current.add(warnKey);
+          toast(`Vas en el ${Math.round((spent / b.limit) * 100)}% del presupuesto de ${b.category}`, { duration: 4500, icon: '⚠️' });
+        }
+      }
+    });
+  }, [transactions, budgets, loaded]);
 
   const getAccountBalance = (accountId) => {
     const acc = accounts.find(a => a.id === accountId);

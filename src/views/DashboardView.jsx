@@ -89,7 +89,7 @@ export default function DashboardView() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-wrap justify-between items-center gap-3">
         <h2 className="text-2xl font-bold text-slate-800">Resumen</h2>
         <div className="flex bg-slate-200 p-1 rounded-lg">
           {['diario', 'mensual', 'anual'].map(f => (
@@ -245,14 +245,14 @@ export default function DashboardView() {
         ) : (
           <div className="space-y-3">
             {filteredTransactions.slice(0, 5).map(t => (
-              <div key={t.id} className="flex justify-between items-center p-3 hover:bg-slate-50 rounded-xl border border-transparent hover:border-slate-100 transition-colors">
-                <div className="flex items-center gap-4">
+              <div key={t.id} className="flex justify-between items-center gap-2 p-3 hover:bg-slate-50 rounded-xl border border-transparent hover:border-slate-100 transition-colors">
+                <div className="flex items-center gap-4 min-w-0 flex-1">
                   <div className={`p-3 rounded-full flex-shrink-0 ${t.isRecurring ? 'bg-purple-100 text-purple-600' : 'bg-slate-100 text-slate-600'}`}>
                     {t.isRecurring ? <Repeat size={20} /> : getCategoryIcon(t.category, 20, "")}
                   </div>
-                  <div>
-                    <p className="font-semibold text-slate-800 leading-tight">{t.description}</p>
-                    <div className="flex items-center gap-2 mt-1">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-slate-800 leading-tight truncate">{t.description}</p>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <span className="text-xs text-slate-500">{t.date}</span>
                       <span className="w-1 h-1 bg-slate-300 rounded-full" />
                       <span className="text-xs text-slate-500">{t.category}</span>
@@ -264,7 +264,7 @@ export default function DashboardView() {
                     </div>
                   </div>
                 </div>
-                <span className={`font-bold text-base whitespace-nowrap ml-2 ${t.type === 'ingreso' ? 'text-emerald-600' : t.type === 'transferencia' ? 'text-blue-600' : 'text-slate-800'}`}>
+                <span className={`font-bold text-base whitespace-nowrap ml-2 flex-shrink-0 ${t.type === 'ingreso' ? 'text-emerald-600' : t.type === 'transferencia' ? 'text-blue-600' : 'text-slate-800'}`}>
                   {t.type === 'ingreso' ? '+' : t.type === 'transferencia' ? '' : '-'}{formatCurrency(t.amount)}
                 </span>
               </div>
@@ -280,11 +280,11 @@ export default function DashboardView() {
         <p className="text-xs text-slate-400 mb-4">
           Promedio de ahorro últimos 3 meses: <span className="font-bold text-slate-600">{formatCurrency(Math.round(avgSaving))}/mes</span>
         </p>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-2 sm:gap-4">
           {[{ label: '3 meses', value: avgSaving * 3 }, { label: '6 meses', value: avgSaving * 6 }, { label: '12 meses', value: avgSaving * 12 }].map(p => (
-            <div key={p.label} className={`p-4 rounded-xl text-center ${p.value >= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
+            <div key={p.label} className={`p-3 sm:p-4 rounded-xl text-center ${p.value >= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
               <p className="text-xs text-slate-500 mb-1">{p.label}</p>
-              <p className={`text-lg font-black ${p.value >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{formatCurrency(Math.round(p.value))}</p>
+              <p className={`text-sm sm:text-lg font-black break-words leading-tight ${p.value >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{formatCurrency(Math.round(p.value))}</p>
             </div>
           ))}
         </div>
