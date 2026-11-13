@@ -3,18 +3,17 @@ import { useFinance } from '../context/FinanceContext';
 import { formatCurrency, getCategoryIcon } from '../utils/helpers.jsx';
 import {
   Landmark, Wallet, TrendingUp, TrendingDown, Activity, Target,
-  Building2, Repeat
+  Building2, Repeat, CalendarClock, ArrowUp, ArrowDown, CreditCard, AlertTriangle
 } from 'lucide-react';
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
   Tooltip, LineChart, Line, ResponsiveContainer, CartesianGrid
 } from 'recharts';
-import toast from 'react-hot-toast';
 
 
 export default function DashboardView() {
   const [timeFilter, setTimeFilter] = useState('mensual');
-  const { accounts, transactions, goals, getAccountBalance, totalNetWorth, expenseCategories } = useFinance();
+  const { accounts, transactions, goals, subscriptions, debts, getAccountBalance, totalNetWorth, expenseCategories } = useFinance();
 
   const getFilteredTransactions = () => {
     const today = new Date();
@@ -38,6 +37,64 @@ export default function DashboardView() {
   const totalGoalsTarget = goals.reduce((acc, g) => acc + g.targetAmount, 0);
   const globalGoalsProgress = totalGoalsTarget > 0 ? (totalSaved / totalGoalsTarget) * 100 : 0;
   const savingsRate = totalIncome > 0 ? (balance / totalIncome) * 100 : 0;
+
+  // 📈 COMPARATIVA CON EL PERIODO ANTERIOR
+  const now = new Date();
+  const prevKeys = (() => {
+    if (timeFilter === 'diario') {
+      const y = new Date(now); y.setDate(y.getDate() - 1);
+      return { match: (t) => t.date === y.toISOString().split('T')[0], label: 'vs ayer' };
+    }
+    if (timeFilter === 'anual') {
+      const prevYear = String(now.getFullYear() - 1);
+      return { match: (t) => t.date.startsWith(prevYear), label: 'vs año anterior' };
+    }
+    // mensual (por defecto)
+    const p = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevMonth = p.toISOString().substring(0, 7);
+    return { match: (t) => t.date.startsWith(prevMonth), label: 'vs mes anterior' };
+  })();
+  const prevTransactions = transactions.filter(prevKeys.match);
+  const prevIncome = prevTransactions.filter(t => t.type === 'ingreso').reduce((a, t) => a + t.amount, 0);
+  const prevExpense = prevTransactions.filter(t => t.type === 'gasto').reduce((a, t) => a + t.amount, 0);
+  const prevBalance = prevIncome - prevExpense;
+
+  // Muestra el cambio porcentual con color según si subir es bueno o malo
+  const renderDelta = (curr, prev, higherIsGood) => {
+    if (!prev) return <span className="text-xs text-slate-400 mt-1 font-medium">Sin dato previo {prevKeys.label}</span>;
+    const pct = ((curr - prev) / Math.abs(prev)) * 100;
+    if (Math.abs(pct) < 0.1) return <span className="text-xs text-slate-400 mt-1 font-medium">Sin cambios {prevKeys.label}</span>;
+    const up = pct > 0;
+    const good = higherIsGood ? up : !up;
+    const Icon = up ? ArrowUp : ArrowDown;
+    return (
+      <span className={`text-xs font-bold mt-1 flex items-center gap-0.5 ${good ? 'text-emerald-600' : 'text-red-500'}`}>
+        <Icon size={13} /> {Math.abs(pct).toFixed(1)}% <span className="text-slate-400 font-medium ml-0.5">{prevKeys.label}</span>
+      </span>
+    );
+  };
+
+  // 📅 PRÓXIMOS PAGOS (gastos fijos + deudas por pagar) en los próximos 30 días
+  const todayMid = new Date(); todayMid.setHours(0, 0, 0, 0);
+  const horizon = new Date(todayMid); horizon.setDate(horizon.getDate() + 30);
+  const horizonStr = horizon.toISOString().split('T')[0];
+  const daysUntil = (dateStr) => Math.round((new Date(dateStr + 'T00:00:00') - todayMid) / 86400000);
+  const whenLabel = (dateStr) => {
+    const d = daysUntil(dateStr);
+    if (d < 0) return { text: 'Vencido', urgent: true };
+    if (d === 0) return { text: 'Hoy', urgent: true };
+    if (d === 1) return { text: 'Mañana', urgent: false };
+    return { text: `En ${d} días`, urgent: false };
+  };
+  const upcomingPayments = [
+    ...subscriptions
+      .filter(s => s.isActive && s.nextPaymentDate && s.nextPaymentDate <= horizonStr)
+      .map(s => ({ id: 's' + s.id, name: s.name, date: s.nextPaymentDate, amount: s.amount, kind: 'Gasto fijo' })),
+    ...debts
+      .filter(d => d.type === 'por_pagar' && d.paidAmount < d.totalAmount && d.dueDate && d.dueDate <= horizonStr)
+      .map(d => ({ id: 'd' + d.id, name: d.name, date: d.dueDate, amount: d.totalAmount - d.paidAmount, kind: 'Deuda' })),
+  ].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  const upcomingTotal = upcomingPayments.reduce((s, p) => s + p.amount, 0);
 
   const CHART_COLORS = ['#378ADD','#1D9E75','#D85A30','#BA7517','#7F77DD','#E24B4A','#888780','#D4537E'];
 
@@ -109,15 +166,57 @@ export default function DashboardView() {
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col">
           <div className="flex items-center text-slate-500 mb-2"><Wallet className="w-5 h-5 mr-2" /><span>Flujo {timeFilter}</span></div>
           <span className={`text-2xl font-bold ${balance >= 0 ? 'text-slate-800' : 'text-red-600'}`}>{formatCurrency(balance)}</span>
+          {renderDelta(balance, prevBalance, true)}
         </div>
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col">
           <div className="flex items-center text-emerald-500 mb-2"><TrendingUp className="w-5 h-5 mr-2" /><span>Ingresos</span></div>
           <span className="text-2xl font-bold text-slate-800">{formatCurrency(totalIncome)}</span>
+          {renderDelta(totalIncome, prevIncome, true)}
         </div>
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col">
           <div className="flex items-center text-red-500 mb-2"><TrendingDown className="w-5 h-5 mr-2" /><span>Gastos</span></div>
           <span className="text-2xl font-bold text-slate-800">{formatCurrency(totalExpense)}</span>
+          {renderDelta(totalExpense, prevExpense, false)}
         </div>
+      </div>
+
+      {/* 📅 PRÓXIMOS PAGOS */}
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+        <div className="flex justify-between items-center mb-4 gap-3 flex-wrap">
+          <h3 className="font-bold text-slate-800 flex items-center gap-2"><CalendarClock className="text-blue-500" size={20} />Próximos pagos <span className="text-xs font-medium text-slate-400">(30 días)</span></h3>
+          {upcomingPayments.length > 0 && (
+            <span className="text-sm font-bold text-slate-700">Total: {formatCurrency(upcomingTotal)}</span>
+          )}
+        </div>
+        {upcomingPayments.length === 0 ? (
+          <p className="text-slate-400 text-sm text-center py-6">No tienes pagos programados para los próximos 30 días. 🎉</p>
+        ) : (
+          <div className="space-y-2">
+            {upcomingPayments.map(p => {
+              const w = whenLabel(p.date);
+              return (
+                <div key={p.id} className="flex items-center justify-between gap-2 p-3 rounded-xl border border-slate-100 hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className={`p-2 rounded-lg flex-shrink-0 ${p.kind === 'Deuda' ? 'bg-red-50 text-red-500' : 'bg-purple-50 text-purple-500'}`}>
+                      {p.kind === 'Deuda' ? <CreditCard size={18} /> : <Repeat size={18} />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-slate-800 text-sm leading-tight truncate">{p.name}</p>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        <span className={`text-xs font-bold flex items-center gap-1 ${w.urgent ? 'text-red-500' : 'text-slate-500'}`}>
+                          {w.urgent && <AlertTriangle size={11} />}{w.text}
+                        </span>
+                        <span className="text-[11px] text-slate-400">{p.date}</span>
+                        <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">{p.kind}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <span className="font-bold text-slate-800 text-sm whitespace-nowrap flex-shrink-0">{formatCurrency(p.amount)}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
