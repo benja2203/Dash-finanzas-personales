@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 
 export default function GoalsView() {
   // 👇 Traemos cuentas y movimientos para que el ahorro salga de una cuenta real
-  const { goals, setGoals, accounts, transactions, setTransactions } = useFinance();
+  const { goals, setGoals, accounts, transactions, setTransactions, defaultAccountId } = useFinance();
   const [newGoal, setNewGoal] = useState({ name: '', targetAmount: '' });
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
@@ -30,7 +30,7 @@ export default function GoalsView() {
 
   // Resuelve la cuenta seleccionada (o la primera disponible)
   const resolveAccountId = (id) => {
-    const raw = savingAccounts[id] || (accounts.length > 0 ? accounts[0].id : null);
+    const raw = savingAccounts[id] || defaultAccountId;
     return Number(raw);
   };
 
@@ -159,7 +159,7 @@ export default function GoalsView() {
               </div>
               <div className="flex flex-col gap-2 mt-2 pt-3 border-t border-slate-50">
                 <select
-                  value={savingAccounts[g.id] || (accounts.length > 0 ? accounts[0].id : '')}
+                  value={savingAccounts[g.id] || defaultAccountId}
                   onChange={e => setSavingAccounts({...savingAccounts, [g.id]: e.target.value})}
                   className="w-full p-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none text-slate-600 bg-slate-50"
                 >
