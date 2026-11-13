@@ -3,7 +3,7 @@ import { useFinance } from '../context/FinanceContext';
 import { formatCurrency, getCategoryIcon } from '../utils/helpers.jsx';
 import {
   Landmark, Wallet, TrendingUp, TrendingDown, Activity, Target,
-  Building2, Repeat, CalendarClock, ArrowUp, ArrowDown, CreditCard, AlertTriangle
+  Building2, Repeat, CalendarClock, ArrowUp, ArrowDown, CreditCard, AlertTriangle, PiggyBank
 } from 'lucide-react';
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
@@ -13,7 +13,7 @@ import {
 
 export default function DashboardView() {
   const [timeFilter, setTimeFilter] = useState('mensual');
-  const { accounts, transactions, goals, subscriptions, debts, getAccountBalance, totalNetWorth, expenseCategories } = useFinance();
+  const { accounts, transactions, goals, subscriptions, debts, budgets, getAccountBalance, totalNetWorth, expenseCategories } = useFinance();
 
   const getFilteredTransactions = () => {
     const today = new Date();
@@ -95,6 +95,33 @@ export default function DashboardView() {
       .map(d => ({ id: 'd' + d.id, name: d.name, date: d.dueDate, amount: d.totalAmount - d.paidAmount, kind: 'Deuda' })),
   ].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
   const upcomingTotal = upcomingPayments.reduce((s, p) => s + p.amount, 0);
+
+  // 🔎 TUS MAYORES GASTOS del periodo seleccionado (top 5)
+  const topExpenses = filteredTransactions
+    .filter(t => t.type === 'gasto')
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 5);
+
+  // 🐷 RESUMEN DE PRESUPUESTOS (del mes en curso)
+  const currentMonthStr = new Date().toISOString().substring(0, 7);
+  const budgetStatus = budgets.map(b => {
+    const spent = transactions
+      .filter(t => t.type === 'gasto' && t.category === b.category && t.date.startsWith(currentMonthStr))
+      .reduce((s, t) => s + t.amount, 0);
+    const pct = b.limit > 0 ? (spent / b.limit) * 100 : 0;
+    const state = spent > b.limit ? 'over' : pct >= 80 ? 'warn' : 'ok';
+    return { ...b, spent, pct, state };
+  });
+  const budgetCounts = {
+    ok: budgetStatus.filter(b => b.state === 'ok').length,
+    warn: budgetStatus.filter(b => b.state === 'warn').length,
+    over: budgetStatus.filter(b => b.state === 'over').length,
+  };
+  // Los que necesitan atención primero (excedidos, luego en alerta), ordenados por % gastado
+  const budgetsAttention = budgetStatus
+    .filter(b => b.state !== 'ok')
+    .sort((a, b) => b.pct - a.pct)
+    .slice(0, 4);
 
   const CHART_COLORS = ['#378ADD','#1D9E75','#D85A30','#BA7517','#7F77DD','#E24B4A','#888780','#D4537E'];
 
@@ -217,6 +244,74 @@ export default function DashboardView() {
             })}
           </div>
         )}
+      </div>
+
+      {/* 🐷 RESUMEN DE PRESUPUESTOS + 🔎 MAYORES GASTOS */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+          <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4"><PiggyBank className="text-emerald-500" size={20} />Presupuestos del mes</h3>
+          {budgets.length === 0 ? (
+            <p className="text-slate-400 text-sm text-center py-6">Aún no defines presupuestos. Créalos en la pestaña <span className="font-medium text-slate-500">Presupuestos</span> para controlar tus gastos por categoría.</p>
+          ) : (
+            <>
+              <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4">
+                <div className="bg-emerald-50 rounded-xl p-3 text-center">
+                  <p className="text-2xl font-black text-emerald-600">{budgetCounts.ok}</p>
+                  <p className="text-[11px] font-medium text-emerald-700 mt-0.5">En orden</p>
+                </div>
+                <div className="bg-amber-50 rounded-xl p-3 text-center">
+                  <p className="text-2xl font-black text-amber-600">{budgetCounts.warn}</p>
+                  <p className="text-[11px] font-medium text-amber-700 mt-0.5">En alerta</p>
+                </div>
+                <div className="bg-red-50 rounded-xl p-3 text-center">
+                  <p className="text-2xl font-black text-red-600">{budgetCounts.over}</p>
+                  <p className="text-[11px] font-medium text-red-700 mt-0.5">Excedidos</p>
+                </div>
+              </div>
+              {budgetsAttention.length === 0 ? (
+                <p className="text-sm text-slate-500 text-center py-2">Todos tus presupuestos van en orden 👍</p>
+              ) : (
+                <div className="space-y-3">
+                  {budgetsAttention.map(b => (
+                    <div key={b.id}>
+                      <div className="flex justify-between items-center text-sm mb-1 gap-2">
+                        <span className="font-medium text-slate-700 truncate flex items-center gap-1.5">{getCategoryIcon(b.category, 14, "")}{b.category}</span>
+                        <span className={`font-semibold whitespace-nowrap ${b.state === 'over' ? 'text-red-600' : 'text-amber-600'}`}>{formatCurrency(b.spent)} / {formatCurrency(b.limit)}</span>
+                      </div>
+                      <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                        <div className={`h-2 rounded-full ${b.state === 'over' ? 'bg-red-500' : 'bg-amber-400'}`} style={{ width: `${Math.min(b.pct, 100)}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+          <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-1"><TrendingDown className="text-red-500" size={20} />Tus mayores gastos</h3>
+          <p className="text-xs text-slate-400 mb-4">Periodo: {timeFilter}</p>
+          {topExpenses.length === 0 ? (
+            <p className="text-slate-400 text-sm text-center py-6">Sin gastos en este periodo.</p>
+          ) : (
+            <div className="space-y-2">
+              {topExpenses.map((t, i) => (
+                <div key={t.id} className="flex items-center justify-between gap-2 p-2.5 rounded-xl hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <span className="text-xs font-black text-slate-300 w-4 flex-shrink-0 text-center">{i + 1}</span>
+                    <div className="p-2 rounded-lg bg-slate-100 text-slate-600 flex-shrink-0">{getCategoryIcon(t.category, 16, "")}</div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-slate-800 text-sm leading-tight truncate">{t.description}</p>
+                      <p className="text-xs text-slate-400 truncate">{t.category} · {t.date}</p>
+                    </div>
+                  </div>
+                  <span className="font-bold text-slate-800 text-sm whitespace-nowrap flex-shrink-0">{formatCurrency(t.amount)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
