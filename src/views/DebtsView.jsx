@@ -5,7 +5,7 @@ import { Plus, Trash2, Edit2, Banknote, ArrowUpRight, ArrowDownLeft, CheckCircle
 import toast from 'react-hot-toast';
 
 export default function DebtsView() {
-  const { debts, setDebts, accounts, transactions, setTransactions } = useFinance();
+  const { debts, setDebts, accounts, transactions, setTransactions, defaultAccountId } = useFinance();
   
   const [newDebt, setNewDebt] = useState({ name: '', totalAmount: '', type: 'por_pagar', dueDate: new Date().toISOString().split('T')[0] });
   const [editingId, setEditingId] = useState(null);
@@ -31,7 +31,7 @@ export default function DebtsView() {
 
   const addPayment = (debt) => {
     const amount = Number(paymentAmounts[debt.id]);
-    const rawAccountId = paymentAccounts[debt.id] || (accounts.length > 0 ? accounts[0].id : null);
+    const rawAccountId = paymentAccounts[debt.id] || defaultAccountId;
     const accountIdNumber = Number(rawAccountId);
 
     if (!amount || amount <= 0) return;
@@ -160,7 +160,7 @@ export default function DebtsView() {
                 <div className="flex flex-col sm:flex-row gap-2 mt-2 pt-3 border-t border-slate-50">
                   <div className="flex flex-1 gap-2">
                     <select 
-                      value={paymentAccounts[d.id] || (accounts.length > 0 ? accounts[0].id : '')} 
+                      value={paymentAccounts[d.id] || defaultAccountId}
                       onChange={e => setPaymentAccounts({...paymentAccounts, [d.id]: e.target.value})}
                       className="flex-1 p-2 border border-slate-200 rounded-lg text-sm focus:ring-2 outline-none max-w-[140px] text-slate-600"
                     >

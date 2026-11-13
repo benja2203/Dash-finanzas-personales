@@ -201,6 +201,10 @@ export const FinanceProvider = ({ children }) => {
 
   const totalNetWorth = accounts.reduce((sum, acc) => sum + getAccountBalance(acc.id), 0);
 
+  // Cuenta predeterminada: la marcada como isDefault, o la primera si ninguna lo está.
+  // Se usa para preseleccionar la cuenta en los formularios de toda la app.
+  const defaultAccountId = accounts.find(a => a.isDefault)?.id ?? (accounts[0]?.id ?? '');
+
   const resetAllData = async () => {
     if (!window.confirm('¿Seguro que quieres borrar TODOS los datos?')) return;
     if (user) {
@@ -230,7 +234,7 @@ export const FinanceProvider = ({ children }) => {
       customExpenseCategories, setCustomExpenseCategories: update(setCustomExpenseCategories, 'customExpenseCategories'),
       customIncomeCategories, setCustomIncomeCategories: update(setCustomIncomeCategories, 'customIncomeCategories'),
       expenseCategories, incomeCategories,
-      getAccountBalance, totalNetWorth,
+      getAccountBalance, totalNetWorth, defaultAccountId,
       resetAllData, syncing,
     }}>
       {children}

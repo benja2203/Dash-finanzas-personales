@@ -5,11 +5,11 @@ import { Plus, Trash2, Edit2, Repeat, CalendarClock, Pause, Play } from 'lucide-
 import toast from 'react-hot-toast';
 
 export default function SubscriptionsView() {
-  const { accounts, subscriptions, setSubscriptions, expenseCategories } = useFinance();
+  const { accounts, subscriptions, setSubscriptions, expenseCategories, defaultAccountId } = useFinance();
 
   const [newSub, setNewSub] = useState({
     name: '', amount: '', category: 'Servicios',
-    accountId: accounts.length > 0 ? accounts[0].id : '',
+    accountId: defaultAccountId,
     nextPaymentDate: new Date().toISOString().split('T')[0]
   });
   const [editingId, setEditingId] = useState(null);
@@ -56,6 +56,7 @@ export default function SubscriptionsView() {
           </select>
           <select value={newSub.accountId} onChange={e => setNewSub({...newSub, accountId: e.target.value})} className="p-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none flex-1 w-full" required>
             {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+            {accounts.length === 0 && <option value="">Sin cuentas</option>}
           </select>
           <div className="flex w-full md:w-auto items-center gap-2">
             <span className="text-sm font-medium text-slate-500 whitespace-nowrap">Cobrar el:</span>
@@ -80,6 +81,7 @@ export default function SubscriptionsView() {
                 </select>
                 <select value={editForm.accountId} onChange={e => setEditForm({...editForm, accountId: e.target.value})} className="p-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none">
                   {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  {accounts.length === 0 && <option value="">Sin cuentas</option>}
                 </select>
                 <input type="date" value={editForm.nextPaymentDate} onChange={e => setEditForm({...editForm, nextPaymentDate: e.target.value})} className="p-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none" />
                 <div className="flex gap-2 mt-2">

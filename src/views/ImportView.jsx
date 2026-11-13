@@ -5,12 +5,12 @@ import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
 
 export default function ImportView() {
-  const { accounts, transactions, setTransactions } = useFinance();
+  const { accounts, transactions, setTransactions, defaultAccountId } = useFinance();
   const fileInputRef = useRef(null);
 
   const [rawData, setRawData] = useState([]);
   const [headers, setHeaders] = useState([]);
-  const [selectedAccountId, setSelectedAccountId] = useState(accounts.length > 0 ? accounts[0].id : '');
+  const [selectedAccountId, setSelectedAccountId] = useState(defaultAccountId);
   const [step, setStep] = useState(1); 
   
   // 👇 Nuevo estado para saber si el Excel tiene 1 o 2 columnas de dinero
@@ -184,6 +184,7 @@ export default function ImportView() {
                 <label className="text-sm font-bold text-slate-600">¿A qué cuenta pertenece?</label>
                 <select value={selectedAccountId} onChange={e => setSelectedAccountId(e.target.value)} className="w-full p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
                   {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  {accounts.length === 0 && <option value="">Sin cuentas</option>}
                 </select>
               </div>
               <div className="space-y-2">

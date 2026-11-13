@@ -5,12 +5,12 @@ import { Plus, Trash2, Edit2, ArrowRight, Building2, Repeat, FileText, Search } 
 import toast from 'react-hot-toast';
 
 export default function TransactionsView() {
-  const { accounts, transactions, setTransactions, expenseCategories, incomeCategories } = useFinance();
+  const { accounts, transactions, setTransactions, expenseCategories, incomeCategories, defaultAccountId } = useFinance();
 
   const [newTx, setNewTx] = useState({
-    type: 'gasto', amount: '', description: '', notes: '', 
+    type: 'gasto', amount: '', description: '', notes: '',
     date: new Date().toISOString().split('T')[0],
-    category: 'Alimentación', accountId: accounts.length > 0 ? accounts[0].id : '',
+    category: 'Alimentación', accountId: defaultAccountId,
     targetAccountId: accounts.length > 1 ? accounts[1].id : ''
   });
   const [categoryFilter, setCategoryFilter] = useState('Todas');
@@ -147,15 +147,18 @@ const handleAdd = (e) => {
             <div className="flex flex-1 gap-2 items-center">
               <select value={newTx.accountId} onChange={e => setNewTx({...newTx, accountId: e.target.value})} className="p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none flex-1" required>
                 {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                {accounts.length === 0 && <option value="">Sin cuentas</option>}
               </select>
               <ArrowRight className="text-slate-400 flex-shrink-0" size={20}/>
               <select value={newTx.targetAccountId} onChange={e => setNewTx({...newTx, targetAccountId: e.target.value})} className="p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none flex-1" required>
                 {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                {accounts.length === 0 && <option value="">Sin cuentas</option>}
               </select>
             </div>
           ) : (
             <select value={newTx.accountId} onChange={e => setNewTx({...newTx, accountId: e.target.value})} className="p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none flex-1 md:w-auto" required>
               {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              {accounts.length === 0 && <option value="">Sin cuentas</option>}
             </select>
           )}
           {newTx.type !== 'transferencia' && (
@@ -210,6 +213,7 @@ const handleAdd = (e) => {
                     </select>
                     <select value={editTxForm.accountId} onChange={e => setEditTxForm({...editTxForm, accountId: e.target.value})} className="p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none flex-1">
                       {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                      {accounts.length === 0 && <option value="">Sin cuentas</option>}
                     </select>
                     <div className="flex gap-2">
                       <button onClick={saveEditTx} className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">Guardar</button>

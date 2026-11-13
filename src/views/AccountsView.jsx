@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { formatCurrency } from '../utils/helpers.jsx';
-import { Landmark, Plus, Edit2, Trash2 } from 'lucide-react';
+import { Landmark, Plus, Edit2, Trash2, ChevronUp, ChevronDown, Star } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function AccountsView() {
-  const { accounts, setAccounts, getAccountBalance } = useFinance();
+  const { accounts, setAccounts, getAccountBalance, defaultAccountId } = useFinance();
   const [newAccount, setNewAccount] = useState({ name: '', type: 'Débito', initialBalance: '' });
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
@@ -13,9 +13,26 @@ export default function AccountsView() {
   const handleAdd = (e) => {
     e.preventDefault();
     if (!newAccount.name || !newAccount.initialBalance) return;
-    setAccounts([...accounts, { ...newAccount, id: Date.now(), initialBalance: Number(newAccount.initialBalance) }]);
+    // La primera cuenta que se crea queda como predeterminada automáticamente
+    const isFirst = accounts.length === 0;
+    setAccounts([...accounts, { ...newAccount, id: Date.now(), initialBalance: Number(newAccount.initialBalance), isDefault: isFirst }]);
     setNewAccount({ name: '', type: 'Débito', initialBalance: '' });
     toast.success('Cuenta creada exitosamente');
+  };
+
+  // Reordenar: intercambia la cuenta con su vecina (sube o baja una posición)
+  const move = (index, dir) => {
+    const target = index + dir;
+    if (target < 0 || target >= accounts.length) return;
+    const arr = [...accounts];
+    [arr[index], arr[target]] = [arr[target], arr[index]];
+    setAccounts(arr);
+  };
+
+  // Marca una cuenta como predeterminada (y desmarca el resto)
+  const setDefault = (id) => {
+    setAccounts(accounts.map(a => ({ ...a, isDefault: a.id === id })));
+    toast.success('Cuenta predeterminada actualizada');
   };
 
   const handleDelete = (id) => setAccounts(accounts.filter(a => a.id !== id));
@@ -44,8 +61,12 @@ export default function AccountsView() {
         </button>
       </form>
 
+      {accounts.length > 1 && (
+        <p className="text-xs text-slate-400 -mt-2">Usa las flechas para reordenar tus cuentas y la estrella para elegir la predeterminada (la que aparece preseleccionada en toda la app).</p>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 xl:gap-6">
-        {accounts.map(acc => {
+        {accounts.map((acc, index) => {
           if (editingId === acc.id) {
             return (
               <div key={acc.id} className="bg-white p-5 rounded-2xl shadow-sm border border-blue-300 flex flex-col gap-3">
@@ -67,17 +88,26 @@ export default function AccountsView() {
             );
           }
           const currentBalance = getAccountBalance(acc.id);
+          const isDefault = acc.id === defaultAccountId;
           return (
-            <div key={acc.id} className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-blue-200 transition-colors flex flex-col">
+            <div key={acc.id} className={`bg-white p-4 sm:p-5 rounded-2xl shadow-sm border transition-colors flex flex-col ${isDefault ? 'border-blue-300 ring-1 ring-blue-100' : 'border-slate-100 hover:border-blue-200'}`}>
               <div className="flex justify-between items-start mb-4 gap-2">
                 <div className="flex items-start gap-3 flex-1 min-w-0">
                   <div className="p-2 sm:p-3 bg-blue-50 text-blue-600 rounded-xl flex-shrink-0 mt-0.5"><Landmark className="w-5 h-5" /></div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-bold text-slate-800 leading-tight truncate">{acc.name}</h3>
-                    <span className="text-[10px] sm:text-xs font-medium bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full inline-block mt-1.5">{acc.type}</span>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                      <span className="text-[10px] sm:text-xs font-medium bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full inline-block">{acc.type}</span>
+                      {isDefault && <span className="text-[10px] sm:text-xs font-bold bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full inline-flex items-center gap-1"><Star size={11} className="fill-blue-500 text-blue-500" /> Predeterminada</span>}
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 flex-shrink-0">
+                <div className="flex items-center gap-0.5 flex-shrink-0">
+                  <div className="flex flex-col">
+                    <button onClick={() => move(index, -1)} disabled={index === 0} className="p-0.5 text-slate-300 hover:text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors" title="Subir"><ChevronUp size={16}/></button>
+                    <button onClick={() => move(index, 1)} disabled={index === accounts.length - 1} className="p-0.5 text-slate-300 hover:text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors" title="Bajar"><ChevronDown size={16}/></button>
+                  </div>
+                  <button onClick={() => setDefault(acc.id)} disabled={isDefault} className={`p-1.5 rounded-md transition-colors ${isDefault ? 'text-blue-500' : 'text-slate-300 hover:text-blue-500 hover:bg-blue-50'}`} title={isDefault ? 'Cuenta predeterminada' : 'Marcar como predeterminada'}><Star size={16} className={isDefault ? 'fill-blue-500' : ''}/></button>
                   <button onClick={() => startEdit(acc)} className="p-1.5 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-md transition-colors"><Edit2 size={16}/></button>
                   <button onClick={() => { setAccounts(accounts.filter(a => a.id !== acc.id)); toast.error('Cuenta eliminada'); }} className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"><Trash2 size={16}/></button>
                 </div>
