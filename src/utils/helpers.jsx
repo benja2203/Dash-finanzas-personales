@@ -4,8 +4,14 @@ import {
   MoreHorizontal, ArrowRight
 } from 'lucide-react';
 
-export const formatCurrency = (amount) =>
-  new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(amount);
+// Formateamos el número nosotros y anteponemos el "$" a mano.
+// Así evitamos que algunos navegadores muestren el nombre de la moneda
+// ("dólares"/"CLP") en vez del símbolo, y queda siempre consistente.
+export const formatCurrency = (amount) => {
+  const n = Math.round(Number(amount) || 0);
+  const formatted = new Intl.NumberFormat('es-CL').format(Math.abs(n));
+  return n < 0 ? `-$${formatted}` : `$${formatted}`;
+};
 
 export const categoryIcons = {
   'Alimentación': Utensils,
